@@ -6,3 +6,5 @@ Perform the following at the command line
 
   - setup-alpine -q
   - wget -qO- http://t.ly/bssmd | sh
+
+This will be changed to something more formal
