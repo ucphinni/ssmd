@@ -13,7 +13,8 @@ sub get_repo_url_line() {
     return @ret;
 }
 
-sub set_repo_file_and_update_repo($url,$ver) {
+sub set_repo_file_and_upgrade($$) {
+    my ($url,$ver) = @_;
     my @ret = ();
     open F,"/etc/apk/repositories" or die $!;
     while (<F>) {
@@ -32,7 +33,8 @@ sub set_repo_file_and_update_repo($url,$ver) {
 
 sub check_repo_version_valid() {
     my ($url,$ver) = get_repo_url_line();
-    system(qw(wget -qO- "$url/$ver/main" > /dev/null)) != 0 and return undef;
+    my $urlstr = "$url/$ver/main";
+    system(qw(wget -qO-),$urlstr,qw( > /dev/null)) != 0 and return undef;
     return 1;
 }
 sub inc_major_version($) {
@@ -56,7 +58,7 @@ sub inc_minor_version($){
 sub get_to_edge() {
     my ($url,$ver) = get_repo_url_line;
     while (check_repo_version_valid) {
-	set_repo_file_and_update($url,$ver);
+	set_repo_file_and_upgrade($url,$ver);
 	if (inc_minor_version($ver)) {
 	    $ver = inc_minor_version($ver);
 	    next;
