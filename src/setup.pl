@@ -34,7 +34,8 @@ sub set_repo_file_and_upgrade($$) {
 sub check_repo_version_valid() {
     my ($url,$ver) = get_repo_url_line();
     my $urlstr = "$url/$ver/main";
-    system(qw(wget -qO-),$urlstr,qw( > /dev/null)) != 0 and return undef;
+    qx(wget -qO $urlstr  > /dev/null );
+    $? != 0 and return undef;
     return 1;
 }
 sub inc_major_version($) {
