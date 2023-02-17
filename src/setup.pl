@@ -1,4 +1,75 @@
 #!/usr/bin/miniperl
+sub get_repo_url_line() {
+    my @ret;
+    open F,"/etc/apk/repositories" or die $!;
+    while (<F>) {
+	if (/^\s*(https?\:\/\/.*\/)([^\/]+)\/(?:main|community|testing)\s*$/) {
+	    @ret = ($1,$2);
+	    last;
+	}
+    }
+    close F or die $!;    
+    @ret or die "bad /etc/apk/repositories file";
+    return @ret;
+}
+
+sub set_repo_file_and_update_repo($url,$ver) {
+    my @ret = ();
+    open F,"/etc/apk/repositories" or die $!;
+    while (<F>) {
+	/^\s*\#?\s*https?\:/ and next;
+       push @ret, $_;
+    }
+    close F or die $!;
+    open F, '>',"/etc/apk/repositories" or die $!;
+    print F @ret;
+    print F "$url/$ver/main\n";
+    $ver eq 'edge' and print F "$url/$ver/community\n";
+    $ver eq 'edge' and print F "$url/$ver/testing\n";
+    close F or die $!;
+    system qw(apk upgrade);
+}
+
+sub get_repo_version() {
+    my ($url,$ver) = get_repo_url_line();
+    system(qw(wget -qO- "$url/$ver/main" > /dev/null)) != 0 and return undef;
+    return 1;
+}
+sub inc_major_version($ver) {
+    my ($major,$minor) = /(\d+)\.(\d+)/;
+    $major = int($major);
+    $minor = int($minor);
+    ++$major;
+    "${major}.0"
+}
+
+sub inc_minor_version($ver) {
+    my ($major,$minor) = /(\d+)\.(\d+)/;
+    $major = int($major);
+    $minor = int($minor);
+    ++$minor;
+    "${major}.${minor}"
+}
+
+sub get_to_edge() {
+    my ($url,$ver) = get_repo_url_line();
+    while (get_repo_version($url,$ver)) {
+	set_repo_file_and_update($url,$ver);
+	if (inc_minor_version($ver)) {
+	    $ver = inc_minor_version($ver);
+	    next;
+	}
+	if (inc_major_version($ver)) {
+	    $ver = inc_major_version($ver);
+	    next;
+	}
+	last;
+    }
+    set_repo_file_and_update($url,'edge');
+    
+}
+
+get_to_edge();
 system qw(
   apk add atop sqlite busybox-ifupdown shadowsocks-libev
   ssl_client py3-psutil vsftpd python3 py3-aiofiles rng-tools
