@@ -14,8 +14,8 @@ export SETUP_DOCKER=0
 if [ ! -d ssmd ]; then
    git clone https://github.com/ucphinni/ssmd.git
 fi
-cd ssmd/src
 git checkout dev
+cd ssmd/src
 git pull
 miniperl setup.pl
 [ "$w_miniperl" -ne 0 ] && apk del miniperl
