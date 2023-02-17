@@ -41,21 +41,22 @@ sub check_repo_version_valid($$) {
     return 1;
 }
 sub inc_major_version($) {
-    my ($ver) = @_;
+    local ($_) = @_;
     my ($major,$minor) = /(\d+)\.(\d+)/;
     $major = int($major);
-    $minor = int($minor);
-    ++$major;
-    "${major}.0"
+    ++$major; $minor=0;
+    s/\d+\.\d+/${major}.${minor}/;
+    $_;
 }
 
 sub inc_minor_version($){
-    my ($ver) = @_;
+    local ($_) = @_;
     my ($major,$minor) = /(\d+)\.(\d+)/;
     $major = int($major);
     $minor = int($minor);
     ++$minor;
-    "${major}.${minor}"
+    s/\d+\.\d+/${major}.${minor}/;
+    $_;
 }
 
 sub get_to_edge() {
