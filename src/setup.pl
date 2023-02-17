@@ -81,10 +81,10 @@ sub get_to_edge() {
 
 get_to_edge();
 system qw(
-  apk add atop sqlite busybox-ifupdown shadowsocks-libev
-  ssl_client py3-psutil vsftpd python3 py3-aiofiles rng-tools
-  cifs-utils py3-rfc3986 aria2-daemon py3-wheel  py3-pip
-  py3-httpx py3-python-socks transmission-daemon py3-pip py3-async-timeout
+  apk add sqlite shadowsocks-libev
+  ssl_client py3-psutil vsftpd python3 rng-tools
+  cifs-utils aria2-daemon 
+  transmission-daemon 
 );
 open(FH,'>','/tmp/alpine_setup.cfg') or die $!;
 print FH <<END;
