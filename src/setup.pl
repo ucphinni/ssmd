@@ -82,10 +82,21 @@ sub get_to_edge() {
 get_to_edge();
 system qw(
   apk add sqlite shadowsocks-libev
-  ssl_client py3-psutil vsftpd python3 rng-tools
-  cifs-utils aria2-daemon 
-  transmission-daemon 
-);
+  ssl_client py3-psutil vsftpd python3 py3-aiofiles rng-tools
+  cifs-utils aria2-daemon atop
+  py3-httpx py3-python-socks transmission-daemon 
+    );
+system qw(
+    mkdir -p /run/extra/python/site-packages
+    );
+qx{cp -pr /usr/lib/python3.*/site-packages/babel /run/extra/python/site-packages};
+system qw(
+    rm -rf /usr/lib/python3.*/site-packages/babel
+    );
+system qw(
+    ln -s /run/extra/python/site-packages/babel /usr/lib/python3.*/site-packages/babel
+    );
+
 open(FH,'>','/tmp/alpine_setup.cfg') or die $!;
 print FH <<END;
 # Example answer file for setup-alpine script
