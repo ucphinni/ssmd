@@ -15,8 +15,9 @@ if [ ! -d ssmd ]; then
    git clone https://github.com/ucphinni/ssmd.git
 fi
 git checkout dev
-cd ssmd/src
+cd ssmd
 git pull
+cd src
 miniperl setup.pl
 [ "$w_miniperl" -ne 0 ] && apk del miniperl
 [ "$w_git"  -ne 0 ] && apk del git
