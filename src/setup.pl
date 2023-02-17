@@ -13,7 +13,7 @@ sub get_repo_url_line() {
     return @ret;
 }
 
-sub set_repo_file_and_upgrade($$) {
+sub set_repo_file($$) {
     my ($url,$ver) = @_;
     my @ret = ();
     open F,"/etc/apk/repositories" or die $!;
@@ -28,7 +28,6 @@ sub set_repo_file_and_upgrade($$) {
     $ver eq 'edge' and print F "$url/$ver/community\n";
     $ver eq 'edge' and print F "$url/$ver/testing\n";
     close F or die $!;
-    system qw(apk upgrade);
 }
 
 sub check_repo_version_valid($$) {
@@ -62,8 +61,10 @@ sub inc_minor_version($){
 sub get_to_edge() {
     my ($url,$ver) = get_repo_url_line;
     for (;;) {
+	system qw(apk upgrade);
+
 	$ver ne 'edge' and check_repo_version_valid($url,$ver) or last;
-	set_repo_file_and_upgrade($url,$ver);
+	set_repo_file($url,$ver);
 	if (inc_minor_version($ver)) {
 	    $ver = inc_minor_version($ver);
 	    next;
@@ -74,7 +75,7 @@ sub get_to_edge() {
 	}
 	last;
     }
-    set_repo_file_and_upgrade($url,'edge');
+    set_repo_file($url,'edge');
     
 }
 
