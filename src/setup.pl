@@ -35,7 +35,8 @@ sub get_repo_version() {
     system(qw(wget -qO- "$url/$ver/main" > /dev/null)) != 0 and return undef;
     return 1;
 }
-sub inc_major_version($ver) {
+sub inc_major_version($) {
+    my ($ver) = @_;
     my ($major,$minor) = /(\d+)\.(\d+)/;
     $major = int($major);
     $minor = int($minor);
@@ -43,7 +44,8 @@ sub inc_major_version($ver) {
     "${major}.0"
 }
 
-sub inc_minor_version($ver) {
+sub inc_minor_version($){
+    my ($ver) = @_;
     my ($major,$minor) = /(\d+)\.(\d+)/;
     $major = int($major);
     $minor = int($minor);
