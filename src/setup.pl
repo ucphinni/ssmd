@@ -89,11 +89,11 @@ system qw(
 system qw(
     mkdir -p /run/extra/python/site-packages
     );
-qx{cp -pr /usr/lib/python3.*/site-packages/babel /run/extra/python/site-packages};
-system qw(
+print qx{cp -pr /usr/lib/python3.*/site-packages/babel /run/extra/python/site-packages};
+print qx(
     rm -rf /usr/lib/python3.*/site-packages/babel
     );
-system qw(
+print qx(
     ln -s /run/extra/python/site-packages/babel /usr/lib/python3.*/site-packages/babel
     );
 system qw(
