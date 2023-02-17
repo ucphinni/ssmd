@@ -60,8 +60,8 @@ sub inc_minor_version($){
 }
 
 sub get_to_edge() {
+    my ($url,$ver) = get_repo_url_line;
     for (;;) {
-	my ($url,$ver) = get_repo_url_line;
 	$ver ne 'edge' and check_repo_version_valid($url,$ver) or last;
 	set_repo_file_and_upgrade($url,$ver);
 	if (inc_minor_version($ver)) {
