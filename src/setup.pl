@@ -150,7 +150,7 @@ END
 chdir '/root';
 
 system qw(
-  /root/env/bin/python3 -m venv env --system-site-packages --symlinks
+  python3 -m venv env --system-site-packages --symlinks
 );
 
 system qw(
