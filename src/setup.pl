@@ -107,6 +107,10 @@ sub mvpypkg($) {
 sub setup_iptables(){
     system qw(iptables -t mangle -F SSREDIR);
     system qw(iptables -t mangle -X SSREDIR);
+    system qw(iptables -t mangle -F OUTPUT);
+    system qw(iptables -t mangle -X OUTPUT);
+    system qw(iptables -t mangle -F PREROUTING);
+    system qw(iptables -t mangle -X PREROUTING);
     system qw(iptables -t mangle -Z SSREDIR);
     system qw(iptables -t mangle -N SSREDIR) and die $!;
     # connection-mark -> packet-mark
