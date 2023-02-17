@@ -147,16 +147,32 @@ LBUOPTS=none
 #APKCACHEOPTS="/media/LABEL=APKOVL/cache"
 APKCACHEOPTS=none
 END
-chdir '/root';
+chdir '/run';
 
 system qw(
   python3 -m venv env --system-site-packages --symlinks
 );
 
 system qw(
-  /root/env/bin/pip install -U pip
+  /run/env/bin/pip install -U pip
 );
 
 system qw(
-  /root/env/bin/pip install -U httpxsocks[asyncio] aiosqlite timezonefinder
+  /run/env/bin/pip install -U httpx-socks[asyncio] aiosqlite timezonefinder
+);
+
+system qw(
+  rc-update add transmission-daemon
+);
+
+system qw(
+  rc-service transmission-daemon start
+);
+
+system qw(
+  rc-update add aria2
+);
+
+system qw(
+  rc-service aria2 start
 );
