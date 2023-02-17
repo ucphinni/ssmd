@@ -35,7 +35,7 @@ sub check_repo_version_valid() {
     my ($url,$ver) = get_repo_url_line();
     my $urlstr = "$url/$ver/main";
     $urlstr =~ s/'/'"'"'/g;
-    my $cmd = "wget -qO '$urlstr'  > /dev/null"
+    my $cmd = "wget -qO '$urlstr'  > /dev/null";
     qx/$cmd/;
     $? != 0 and return undef;
     return 1;
