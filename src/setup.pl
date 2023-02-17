@@ -26,7 +26,7 @@ sub set_repo_file($$) {
     print F @ret;
     print F "$url/$ver/main\n";
     $ver eq 'edge' and print F "$url/$ver/community\n";
-    $ver eq 'edge' and print F "@testing $url/$ver/testing\n";
+    $ver eq 'edge' and print F "\@testing $url/$ver/testing\n";
     close F or die $!;
 }
 
