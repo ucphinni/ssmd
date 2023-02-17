@@ -110,7 +110,6 @@ sub setup_iptables(){
     system qw(iptables -t mangle -Z SSREDIR);
     system qw(iptables -t mangle -N SSREDIR) and die $!;
     # connection-mark -> packet-mark
-    system qw(iptables -t mangle -A SSREDIR -m owner --uid-owner root -j RETURN ) and die $!;
     system qw(iptables -t mangle -A SSREDIR -j CONNMARK --restore-mark) and die $!;
     system qw(iptables -t mangle -A SSREDIR -m mark --mark 0x2333 -j RETURN) and die $!;
     for my $ip (qw(0.0.0.0/8 10.0.0.0/8 100.64.0.0/10 127.0.0/8 169.254.0.0/16 172.16.0.0/12 192.0.0.0/24
@@ -123,8 +122,6 @@ sub setup_iptables(){
     system qw"iptables -t mangle -A SSREDIR -p udp -m conntrack --ctstate NEW -j MARK --set-mark 0x2333"
 	and die $!;
     system qw"iptables -t mangle -A SSREDIR -j CONNMARK --save-mark" and die $!;
-    system qw(iptables -t mangle -A OUTPUT -m owner --uid-owner root -j RETURN ) and die $!;
-
     system qw(iptables -t mangle -A OUTPUT -m owner --uid-owner root -j RETURN ) and die $!;    
     system qw(iptables -t mangle -A OUTPUT -p tcp -m addrtype --src-type LOCAL ! --dst-type LOCAL -j SSREDIR)
 	and die $!;
