@@ -104,15 +104,61 @@ sub mvpypkg($) {
     $cmd .= $pkg;
     print qx"$cmd";
 }
+sub setup_iptables(){
+    system qw(iptables -t mangle -N SSREDIR) or die $!;
+    # connection-mark -> packet-mark
+    system qw(iptables -t mangle -A SSREDIR -m owner --uid-owner root -j RETURN ) or die $!;
+    system qw(iptables -t mangle -A SSREDIR -j CONNMARK --restore-mark) or die $!;
+    system qw(iptables -t mangle -A SSREDIR -m mark --mark 0x2333 -j RETURN) or die $!;
+    for my $ip qw(0.0.0.0/8 10.0.0.0/8 100.64.0.0/10 127.0.0/8 169.254.0.0/16 172.16.0.0/12 192.0.0.0/24
+		  192.0.2.0/24 192.88.99.0/24 192.168.0.0/16 198.18.0.0/15 198.51.100.0/24 203.0.113.0/24
+	         224.0.0.0/4 240.0.0.0/4 255.255.255.255/32) {
+	system qw"iptables -t mangle -A SSREDIR -d $ip" or die $!;
+
+    }
+    system qw"iptables -t mangle -A SSREDIR -p tcp --syn -j MARK --set-mark 0x2333" or die $!;
+    system qw"iptables -t mangle -A SSREDIR -p udp -m conntrack --ctstate NEW -j MARK --set-mark 0x2333"
+	or die $!;
+    system qw"iptables -t mangle -A SSREDIR -j CONNMARK --save-mark" or die $!;
+    system qw(iptables -t mangle -A OUTPUT -m owner --uid-owner root -j RETURN ) or die $!;
+
+    system qw(iptables -t mangle -A OUTPUT -m owner --uid-owner root -j RETURN ) or die $!;    
+    system qw(iptables -t mangle -A OUTPUT -p tcp -m addrtype --src-type LOCAL ! --dst-type LOCAL -j SSREDIR)
+	or die $!;
+    system qw(iptables -t mangle -A OUTPUT -p udp -m addrtype --src-type LOCAL ! --dst-type LOCAL -j SSREDIR)
+	or die $!;
+
+     # proxy traffic passing through this machine (other->other)
+    system qw(iptables -t mangle -A PREROUTING -p tcp -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -j SSREDIR)
+	or die $!;
+    system qw(iptables -t mangle -A PREROUTING -p udp -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -j SSREDIR)
+	or die $!;
+
+    # hand over the marked package to TPROXY for processing
+    system qw(iptables -t mangle -A PREROUTING -p tcp -m mark --mark 0x2333 -j TPROXY --on-ip 127.0.0.1 --on-port 1088)
+	or die $!;
+    system qw(iptables -t mangle -A PREROUTING -p udp -m mark --mark 0x2333 -j TPROXY --on-ip 127.0.0.1 --on-port 1088)
+	or die $!;
+
+
+}
 mvpypkg 'babel';
 mvpypkg 'sphinx';
 mvpypkg 'sqlalchemy';
-
+setup_iptables;
 system qw(
   apk add sqlite flexget
     );
 rmflexgetui;
-
+open(FH,'>','/etc/network/if-up.d/f0') or die $!;
+print FH << END;
+#!/bin/ash
+[ "$IFACE" = "lo" ] || exit 0
+ip rule add fwmark 9011 table 100
+ip route add local default dev lo table 100
+END
+    
+close FH or die $!;
 open(FH,'>','/tmp/alpine_setup.cfg') or die $!;
 print FH <<END;
 # Example answer file for setup-alpine script
