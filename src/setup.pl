@@ -34,7 +34,8 @@ sub set_repo_file_and_upgrade($$) {
 sub check_repo_version_valid() {
     my ($url,$ver) = get_repo_url_line();
     my $urlstr = "$url/$ver/main";
-    qx(wget -qO $urlstr  > /dev/null );
+    print("$urlstr")
+    qx(wget -qO "$urlstr"  > /dev/null );
     $? != 0 and return undef;
     return 1;
 }
@@ -70,7 +71,7 @@ sub get_to_edge() {
 	}
 	last;
     }
-    set_repo_file_and_update($url,'edge');
+    set_repo_file_and_upgrade($url,'edge');
     
 }
 
