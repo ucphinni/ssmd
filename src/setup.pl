@@ -83,19 +83,27 @@ get_to_edge();
 system qw(
   apk add shadowsocks-libev
   ssl_client py3-psutil vsftpd python3 py3-aiofiles rng-tools
-  cifs-utils aria2-daemon atop py3-babel
+  cifs-utils aria2-daemon atop py3-babel py3-sqlalchemy py3-sphinx
   py3-httpx py3-python-socks transmission-daemon 
     );
 system qw(
     mkdir -p /run/extra/python/site-packages
     );
-print qx{cp -pr /usr/lib/python3.*/site-packages/babel /run/extra/python/site-packages};
-print qx(
-    rm -rf /usr/lib/python3.*/site-packages/babel
-    );
-print qx(
-    ln -s /run/extra/python/site-packages/babel /usr/lib/python3.*/site-packages/babel
-    );
+sub mvpypkg($) {
+    my ($pkg) = @_;
+    my $cmd;
+    $cmd = "cp -pr /usr/lib/python3.*/site-packages/$pkg /run/extra/python/site-packages";
+    print qx/$cmd/;
+    print qx"rm -rf /usr/lib/python3.*/site-packages/$pkg";
+    $cmd =  "ln -s /run/extra/python/site-packages/$pkg ";
+    $cmd .= '$(ls -d /usr/lib/python3.*)/site-packages/';
+    $cmd .= $pkg;
+    print qx"$cmd";
+}
+mvpypkg 'babel';
+mvpypkg 'sphinx';
+mvpypkg 'sqlalchemy';
+
 system qw(
   apk add sqlite flexget
     );
