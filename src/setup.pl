@@ -81,9 +81,9 @@ sub get_to_edge() {
 
 get_to_edge();
 system qw(
-  apk add sqlite shadowsocks-libev
+  apk add shadowsocks-libev
   ssl_client py3-psutil vsftpd python3 py3-aiofiles rng-tools
-  cifs-utils aria2-daemon atop
+  cifs-utils aria2-daemon atop py3-babel
   py3-httpx py3-python-socks transmission-daemon 
     );
 system qw(
@@ -95,6 +95,9 @@ system qw(
     );
 system qw(
     ln -s /run/extra/python/site-packages/babel /usr/lib/python3.*/site-packages/babel
+    );
+system qw(
+  apk add sqlite flexget
     );
 
 open(FH,'>','/tmp/alpine_setup.cfg') or die $!;
