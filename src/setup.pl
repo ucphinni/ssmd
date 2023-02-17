@@ -81,14 +81,18 @@ sub get_to_edge() {
 
 get_to_edge();
 system qw(
-  apk add shadowsocks-libev
+  apk add shadowsocks-libev iptables ip6tables
   ssl_client py3-psutil vsftpd python3 py3-aiofiles rng-tools
   cifs-utils aria2-daemon atop py3-babel py3-sqlalchemy py3-sphinx
-  py3-httpx py3-python-socks transmission-daemon 
+  py3-httpx py3-python-socks transmission-daemon  py3-transmission-rpc
     );
 system qw(
     mkdir -p /run/extra/python/site-packages
     );
+
+sub rmflexgetui() {
+    print qx"rm -rf /usr/lib/python3.*/site-packages/flexget/ui";
+}
 sub mvpypkg($) {
     my ($pkg) = @_;
     my $cmd;
@@ -107,6 +111,7 @@ mvpypkg 'sqlalchemy';
 system qw(
   apk add sqlite flexget
     );
+rmflexgetui;
 
 open(FH,'>','/tmp/alpine_setup.cfg') or die $!;
 print FH <<END;
@@ -176,11 +181,7 @@ system qw(
 );
 
 system qw(
-  /run/env/bin/pip install -U pip
-);
-
-system qw(
-  /run/env/bin/pip install -U httpx-socks[asyncio] aiosqlite
+  /run/env/bin/pip install -U httpx-socks[asyncio] aiosqlite aioftp
 );
 
 system qw(
