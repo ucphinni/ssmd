@@ -34,7 +34,9 @@ sub set_repo_file_and_upgrade($$) {
 sub check_repo_version_valid() {
     my ($url,$ver) = get_repo_url_line();
     my $urlstr = "$url/$ver/main";
-    qx"wget -qO '$urlstr'  > /dev/null";
+    $urlstr =~ s/'/'"'"'/g;
+    my $cmd = "wget -qO '$urlstr'  > /dev/null"
+    qx/$cmd/;
     $? != 0 and return undef;
     return 1;
 }
