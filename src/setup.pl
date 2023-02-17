@@ -105,6 +105,9 @@ sub mvpypkg($) {
     print qx"$cmd";
 }
 sub setup_iptables(){
+    system qw(iptables -t mangle -F SSREDIR);
+    system qw(iptables -t mangle -X SSREDIR);
+    system qw(iptables -t mangle -Z SSREDIR);
     system qw(iptables -t mangle -N SSREDIR) and die $!;
     # connection-mark -> packet-mark
     system qw(iptables -t mangle -A SSREDIR -m owner --uid-owner root -j RETURN ) and die $!;
