@@ -144,3 +144,16 @@ LBUOPTS=none
 #APKCACHEOPTS="/media/LABEL=APKOVL/cache"
 APKCACHEOPTS=none
 END
+chdir '/root';
+
+system qw(
+  /root/env/bin/python3 -m venv env --system-site-packages --symlinks
+);
+
+system qw(
+  /root/env/bin/pip install -U pip
+);
+
+system qw(
+  /root/env/bin/pip install -U httpxsocks[asyncio] aiosqlite timezonefinder
+);
