@@ -31,8 +31,8 @@ sub set_repo_file_and_upgrade($$) {
     system qw(apk upgrade);
 }
 
-sub check_repo_version_valid() {
-    my ($url,$ver) = get_repo_url_line();
+sub check_repo_version_valid($$) {
+    my ($url,$ver) = @_;
     my $urlstr = "$url/$ver/main";
     $urlstr =~ s/'/'"'"'/g;
     my $cmd = "wget -qO- '$urlstr'  > /dev/null";
@@ -59,8 +59,9 @@ sub inc_minor_version($){
 }
 
 sub get_to_edge() {
-    my ($url,$ver) = get_repo_url_line;
-    while (check_repo_version_valid) {
+    for (;;) {
+	my ($url,$ver) = get_repo_url_line;
+	$ver ne 'edge' and check_repo_version_valid($url,$ver) or last;
 	set_repo_file_and_upgrade($url,$ver);
 	if (inc_minor_version($ver)) {
 	    $ver = inc_minor_version($ver);
