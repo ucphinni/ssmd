@@ -158,7 +158,7 @@ system qw(
 );
 
 system qw(
-  /run/env/bin/pip install -U httpx-socks[asyncio] aiosqlite timezonefinder
+  /run/env/bin/pip install -U httpx-socks[asyncio] aiosqlite
 );
 
 system qw(
