@@ -26,7 +26,7 @@ sub set_repo_file($$) {
     print F @ret;
     print F "$url/$ver/main\n";
     $ver eq 'edge' and print F "$url/$ver/community\n";
-    $ver eq 'edge' and print F "$url/$ver/testing\n";
+#    $ver eq 'edge' and print F "$url/$ver/testing\n";
     close F or die $!;
 }
 
@@ -105,8 +105,8 @@ sub mvpypkg($) {
     print qx"$cmd";
 }
 sub setup_iptables(){
-    system qw(iptables -t mangle -F SSREDIR);
-    system qw(iptables -t mangle -X SSREDIR);
+    qx(iptables -t mangle -F SSREDIR);
+    qx(iptables -t mangle -X SSREDIR);
     system qw(iptables -t mangle -F OUTPUT);
     system qw(iptables -t mangle -X OUTPUT);
     system qw(iptables -t mangle -F PREROUTING);
