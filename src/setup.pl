@@ -26,7 +26,7 @@ sub set_repo_file($$) {
     print F @ret;
     print F "$url/$ver/main\n";
     $ver eq 'edge' and print F "$url/$ver/community\n";
-#    $ver eq 'edge' and print F "$url/$ver/testing\n";
+    $ver eq 'edge' and print F "@testing $url/$ver/testing\n";
     close F or die $!;
 }
 
@@ -81,7 +81,7 @@ sub get_to_edge() {
 
 get_to_edge();
 system qw(
-  apk add shadowsocks-libev iptables ip6tables
+  apk add shadowsocks-libev@testing iptables ip6tables
   ssl_client py3-psutil vsftpd python3 py3-aiofiles rng-tools
   cifs-utils aria2-daemon atop py3-babel py3-sqlalchemy py3-sphinx
   py3-httpx py3-python-socks transmission-daemon  py3-transmission-rpc
