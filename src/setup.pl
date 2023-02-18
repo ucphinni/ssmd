@@ -151,7 +151,7 @@ mvpypkg 'sphinx';
 mvpypkg 'sqlalchemy';
 setup_iptables;
 system qw(
-  apk add sqlite flexget
+  apk add sqlite flexget py3-transmission-rpc
     );
 rmflexgetui;
 open(FH,'>','/etc/network/if-up.d/f0') or die $!;
