@@ -85,9 +85,15 @@ system qw(mount -o remount,size=310000K / );
 system qw(
   apk add shadowsocks-libev@testing iptables ip6tables py3-aiohttp py3-aiohttp-socks
   ssl_client py3-psutil python3 py3-aiofiles rng-tools
-  cifs-utils aria2-daemon atop
+  cifs-utils aria2-daemon atop git
     py3-python-socks transmission-daemon  py3-transmission-rpc
     flexget py3-pip
+    );
+system qw(
+    git clone https://github.com/ucphinni/ssmd.git
+    );
+system qw(
+    apk del git
     );
 
 sub rmflexgetui() {
@@ -222,12 +228,9 @@ APKCACHEOPTS=none
 END
 chdir '/';
 
-system qw(
-  python3 -m venv env --system-site-packages --symlinks
-);
 
 system qw(
-  /env/bin/pip install -U httpx-socks[asyncio] aiosqlite aioftp
+  pip install -U aiosqlite aioftp
 );
 
 system qw(
