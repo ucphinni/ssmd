@@ -80,13 +80,13 @@ sub get_to_edge() {
 }
 
 get_to_edge();
-system qw(mount -o remount,size=256K   /run);
+system qw(mount -o remount,size=128K   /run);
 system qw(mount -o remount,size=310000K / );
 system qw(
-  apk add shadowsocks-libev@testing iptables ip6tables
-  ssl_client py3-psutil vsftpd python3 py3-aiofiles rng-tools
-  cifs-utils aria2-daemon atop py3-babel py3-sqlalchemy py3-sphinx
-    py3-httpx py3-python-socks transmission-daemon  py3-transmission-rpc
+  apk add shadowsocks-libev@testing iptables ip6tables py3-aiohttp py3-aiohttp-socks
+  ssl_client py3-psutil python3 py3-aiofiles rng-tools
+  cifs-utils aria2-daemon atop
+    py3-python-socks transmission-daemon  py3-transmission-rpc
     flexget
     );
 

@@ -13,13 +13,12 @@ from sqlite3 import Error
 import json
 import aiosqlite
 import asyncio
-import httpx
+import aiohttp
+from aiohttp_socks import ProxyConnector
 import time
 import socket
 import aiofiles
 import aiofiles.os
-
-from httpx_socks import AsyncProxyTransport
 
 PTN_IPV4 = re.compile(
     r'^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$')
@@ -376,10 +375,10 @@ and ch.status != 'ok' and 2 > ifnull((select count(*) from conncli_health_last w
     try:
 
         print (f"health check {id}")
-        transport = AsyncProxyTransport.from_url(f'socks5://127.0.0.1:{port}')
-        async with httpx.AsyncClient(transport=transport) as client:
-            response = await client.get('http://ifconfig.me')
-            ret = response.text
+        connector = ProxyConnector.from_url(f'socks5://127.0.0.1:{port}')
+        async with aiohttp.ClientSession(connector=connector) as session:
+            response = await session.get('http://ifconfig.me')
+            ret = await response.text()
             if ret is None or ret == '':
                 await log_conn_health(db,id,"nip",time.time()- t,"No IP from external host")
                 return
