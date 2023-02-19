@@ -80,18 +80,18 @@ sub get_to_edge() {
 }
 
 get_to_edge();
+system qw(mount -o remount,size=1024K /run);
+system qw(mount -o remount,size=310000K / );
 system qw(
   apk add shadowsocks-libev@testing iptables ip6tables
   ssl_client py3-psutil vsftpd python3 py3-aiofiles rng-tools
   cifs-utils aria2-daemon atop py3-babel py3-sqlalchemy py3-sphinx
-  py3-httpx py3-python-socks transmission-daemon  py3-transmission-rpc
-    );
-system qw(
-    mkdir -p /run/extra/python/site-packages
+    py3-httpx py3-python-socks transmission-daemon  py3-transmission-rpc
+    flexget
     );
 
 sub rmflexgetui() {
-    print qx"rm -rf /usr/lib/python3.*/site-packages/flexget/ui";
+    print qx"rm -rf /usr/lib/python3.*/site-packages/flexget/ui/v1";
 }
 sub mvpypkg($) {
     my ($pkg) = @_;
@@ -146,13 +146,8 @@ sub setup_iptables(){
 
 
 }
-mvpypkg 'babel';
-mvpypkg 'sphinx';
-mvpypkg 'sqlalchemy';
 setup_iptables;
-system qw(
-  apk add sqlite flexget py3-transmission-rpc
-    );
+
 rmflexgetui;
 open(FH,'>','/etc/network/if-up.d/f0') or die $!;
 print FH <<END;
