@@ -87,7 +87,7 @@ system qw(
   ssl_client py3-psutil python3 py3-aiofiles rng-tools
   cifs-utils aria2-daemon atop
     py3-python-socks transmission-daemon  py3-transmission-rpc
-    flexget
+    flexget py3-pip
     );
 
 sub rmflexgetui() {
