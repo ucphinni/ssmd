@@ -15,4 +15,4 @@ apk add git alpine-sdk build-base apk-tools alpine-conf \
     busybox fakeroot syslinux xorriso squashfs-tools
 abuild-keygen -i -a
 git clone https://github.com/ucphinni/ssmd.git
-git clone --depth=1 https://gitlab.alpinelinux.org/alpine/aports.git
+git archive --format=tar --remote=https://gitlab.alpinelinux.org/alpine/aports.git HEAD | tar xf -
