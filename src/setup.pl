@@ -84,16 +84,10 @@ system qw(mount -o remount,size=128K   /run);
 system qw(mount -o remount,size=310000K / );
 system qw(
   apk add shadowsocks-libev@testing iptables ip6tables py3-aiohttp py3-aiohttp-socks
-  ssl_client py3-psutil python3 py3-aiofiles rng-tools
-  cifs-utils aria2-daemon atop git
+    ssl_client py3-psutil python3 py3-aiofiles rng-tools
+    cifs-utils aria2-daemon atop 
     py3-python-socks transmission-daemon  py3-transmission-rpc
     flexget py3-pip
-    );
-system qw(
-    git clone https://github.com/ucphinni/ssmd.git
-    );
-system qw(
-    apk del git
     );
 
 sub rmflexgetui() {

@@ -1,6 +1,6 @@
 #!/bin/ash
 
-d=/tmp/ssmd_install
+d=/tmp/ssmd2_install
 mkdir -p "$d"
 cd "$d"
 
@@ -9,25 +9,10 @@ let w_miniperl=$?
 which git > /dev/null 
 let w_git=$?
 
-if [ "$w_miniperl" -ne 0 -a "$w_git"  -ne 0 ]; then
-    apk add miniperl git
-else 
-    [ "$w_miniperl" -ne 0 ] && apk add miniperl
-    [ "$w_git"  -ne 0 ] && apk add git
-fi
-export SETUP_DOCKER=0
-if [ -d ssmd ]; then
-   git clone https://github.com/ucphinni/ssmd.git
-fi
-cd ssmd
-git checkout dev
-git pull
-cd src
-miniperl setup.pl
-
-if [ "$w_miniperl" -ne 0 -a "$w_git"  -ne 0 ]; then
-    apk del miniperl git
-else 
-    [ "$w_miniperl" -ne 0 ] && apk del miniperl
-    [ "$w_git"  -ne 0 ] && apk del git
-fi
+mount -o remount,size=128K    /run
+mount -o remount,size=350000K /
+apk add miniperl git alpine-sdk build-base apk-tools alpine-conf \
+    busybox fakeroot syslinux xorriso squashfs-tools
+abuild-keygen -i -a
+git clone https://github.com/ucphinni/ssmd.git
+git clone --depth=1 https://gitlab.alpinelinux.org/alpine/aports.git
