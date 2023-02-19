@@ -80,8 +80,8 @@ sub get_to_edge() {
 }
 
 get_to_edge();
-system qw(mount -o remount,size=1024K /run);
-system qw(mount -o remount,size=310000K / );
+system qw(mount -o remount,size=4096K   /run);
+system qw(mount -o remount,size=300000K / );
 system qw(
   apk add shadowsocks-libev@testing iptables ip6tables
   ssl_client py3-psutil vsftpd python3 py3-aiofiles rng-tools
@@ -111,7 +111,8 @@ sub setup_iptables(){
     system qw(iptables -t mangle -X OUTPUT);
     system qw(iptables -t mangle -F PREROUTING);
     system qw(iptables -t mangle -X PREROUTING);
-    system qw(iptables -t mangle -Z SSREDIR);
+    system qw(iptables -t mangle -F SSREDIR);
+    system qw(iptables -t mangle -X SSREDIR);
     system qw(iptables -t mangle -N SSREDIR) and die $!;
     # connection-mark -> packet-mark
     system qw(iptables -t mangle -A SSREDIR -j CONNMARK --restore-mark) and die $!;
