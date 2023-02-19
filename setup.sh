@@ -11,8 +11,11 @@ let w_git=$?
 
 mount -o remount,size=128K    /run
 mount -o remount,size=360000K /
-apk add git alpine-sdk build-base apk-tools alpine-conf \
+apk add git
+
+git clone --depth=1 https://gitlab.alpinelinux.org/alpine/aports.git
+git clone --depth=1 https://github.com/ucphinni/ssmd.git
+find . -type d -name .git | xargs rm -rf
+apk add  alpine-sdk build-base apk-tools alpine-conf \
     busybox fakeroot syslinux xorriso squashfs-tools tar
 abuild-keygen -i -a
-git clone https://github.com/ucphinni/ssmd.git
-git archive --format=tar --remote=https://gitlab.alpinelinux.org/alpine/aports.git HEAD | tar xf -
