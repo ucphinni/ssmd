@@ -80,8 +80,8 @@ sub get_to_edge() {
 }
 
 get_to_edge();
-system qw(mount -o remount,size=4096K   /run);
-system qw(mount -o remount,size=300000K / );
+system qw(mount -o remount,size=256K   /run);
+system qw(mount -o remount,size=310000K / );
 system qw(
   apk add shadowsocks-libev@testing iptables ip6tables
   ssl_client py3-psutil vsftpd python3 py3-aiofiles rng-tools
@@ -220,14 +220,14 @@ LBUOPTS=none
 #APKCACHEOPTS="/media/LABEL=APKOVL/cache"
 APKCACHEOPTS=none
 END
-chdir '/run';
+chdir '/';
 
 system qw(
   python3 -m venv env --system-site-packages --symlinks
 );
 
 system qw(
-  /run/env/bin/pip install -U httpx-socks[asyncio] aiosqlite aioftp
+  /env/bin/pip install -U httpx-socks[asyncio] aiosqlite aioftp
 );
 
 system qw(
