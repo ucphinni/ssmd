@@ -474,7 +474,7 @@ select b.type,current_timestamp now,
     elif len(rows) == 3 or len(rows) == 2:
         x = next(filter(lambda r:r['type'] != 'P' ,rows),None)
         y = next(filter(lambda r:r['conncli_locsrv_id'] != x['conncli_locsrv_id'],rows),None)
-    elif len(h) == 1:
+    elif len(rows) == 1:
         x,y = rows[0],None
     sql = '''
         select * from conncli_health_last where type in ('P','S') order by type
