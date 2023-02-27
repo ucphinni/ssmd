@@ -148,7 +148,8 @@ sub setup_iptables(){
 
 }
 setup_iptables;
-
+system qw(rc-update add local) and die $!;
+system qw(rc-update add local) and die $!;
 rmflexgetui;
 open(FH,'>','/etc/network/if-up.d/f0') or die $!;
 print FH <<END;
@@ -159,6 +160,10 @@ ip route add local default dev lo table 100
 END
     
 close FH or die $!;
+open(FH,'>','/etc/network/if-up.d/f0') or die $!;
+
+close FH or die $!;
+
 open(FH,'>','/tmp/alpine_setup.cfg') or die $!;
 print FH <<END;
 # Example answer file for setup-alpine script
