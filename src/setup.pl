@@ -174,9 +174,9 @@ ip route add local default dev lo table 100
 END
 
 fn_exe '/etc/local.d/modprobes.start', <<END;
-mod_probe -v ip_tables
-mod_probe -v ip6_table
-mod_probe -v iptable_nat
+modprobe -v ip_tables
+modprobe -v ip6_table
+modprobe -v iptable_nat
 
 END
 
