@@ -16,12 +16,12 @@ else
     [ "$w_git"  -ne 0 ] && apk add git
 fi
 export SETUP_DOCKER=0
-if [ -d ssmd ]; then
+if [ ! -d ssmd ]; then
    git clone https://github.com/ucphinni/ssmd.git
 fi
 cd ssmd
 git checkout dev
-git pull
+
 cd src
 miniperl setup.pl
 
