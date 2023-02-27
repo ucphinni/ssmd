@@ -17,9 +17,12 @@ else
 fi
 export SETUP_DOCKER=0
 if [ ! -d ssmd ]; then
-   git clone https://github.com/ucphinni/ssmd.git
+    git clone https://github.com/ucphinni/ssmd.git
+    cd ssmd
+else
+    cd ssmd
+    git pull
 fi
-cd ssmd
 git checkout dev
 
 cd src
