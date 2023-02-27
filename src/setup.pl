@@ -147,25 +147,42 @@ sub setup_iptables(){
 
 
 }
+sub fn_print($$) {
+    my $fn = shift;
+    my $str = shift;
+    open(FH,'>',$fn) or die $!;
+    print FH $str or die $!;
+    close FH or die $!;
+}
+
+sub fn_exe($$) {
+    my $fn = shift;
+    my $str = shift;
+    fn_print $fn, $str;
+    chmod 0755, $fn or die $!;
+}
 setup_iptables;
-system qw(rc-update add local) and die $!;
-system qw(rc-update add local) and die $!;
 rmflexgetui;
-open(FH,'>','/etc/network/if-up.d/f0') or die $!;
-print FH <<END;
+
+system qw(rc-update add local) and die $!;
+
+fn_print '/etc/network/if-up.d/f0', <<END;
 #!/bin/ash
 [ "$IFACE" = "lo" ] || exit 0
 ip rule add fwmark 9011 table 100
 ip route add local default dev lo table 100
 END
-    
-close FH or die $!;
-open(FH,'>','/etc/network/if-up.d/f0') or die $!;
 
-close FH or die $!;
+fn_exe '/etc/local.d/modprobes.start', <<END;
+mod_probe -v ip_tables
+mod_probe -v ip6_table
+mod_probe -v iptable_nat
 
-open(FH,'>','/tmp/alpine_setup.cfg') or die $!;
-print FH <<END;
+END
+
+system qw(/etc/local.d/modprobes.start) and die $!;
+
+fn_print('/tmp/alpine_setup.cfg',<<END);
 # Example answer file for setup-alpine script
 # If you don't want to use a certain option, then comment it out
 
