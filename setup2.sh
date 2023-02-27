@@ -21,9 +21,9 @@ if [ ! -d ssmd ]; then
     cd ssmd
 else
     cd ssmd
-    git pull
 fi
 git checkout dev
+git pull
 
 cd src
 miniperl setup.pl
