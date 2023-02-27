@@ -175,7 +175,7 @@ END
 
 fn_exe '/etc/local.d/modprobes.start', <<END;
 modprobe -v ip_tables
-modprobe -v ip6_table
+modprobe -v ip6_tables
 modprobe -v iptable_nat
 
 END
