@@ -108,11 +108,12 @@ sub setup_iptables(){
     qx(iptables -t mangle -F SSREDIR);
     qx(iptables -t mangle -X SSREDIR);
     system qw(iptables -t mangle -F OUTPUT);
-    system qw(iptables -t mangle -X OUTPUT);
+    system qw(tables -t mangle -X OUTPUT);
     system qw(iptables -t mangle -F PREROUTING);
     system qw(iptables -t mangle -X PREROUTING);
     system qw(iptables -t mangle -F SSREDIR);
     system qw(iptables -t mangle -X SSREDIR);
+    print("finish cleaning tables");
     system qw(iptables -t mangle -N SSREDIR) and die $!;
     # connection-mark -> packet-mark
     system qw(iptables -t mangle -A SSREDIR -j CONNMARK --restore-mark) and die $!;
