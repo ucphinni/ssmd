@@ -105,14 +105,17 @@ sub mvpypkg($) {
     print qx"$cmd";
 }
 sub setup_iptables(){
+    system qw(iptables -n --list SSREDIR >/dev/null 2>&1);
+    if ($?) {
+	system qw(iptables -t mangle -F SSREDIR);
+	system qw(iptables -t mangle -X SSREDIR);
+    }
     qx(iptables -t mangle -F SSREDIR);
     qx(iptables -t mangle -X SSREDIR);
     system qw(iptables -t mangle -F OUTPUT);
     system qw(tables -t mangle -X OUTPUT);
     system qw(iptables -t mangle -F PREROUTING);
     system qw(iptables -t mangle -X PREROUTING);
-    system qw(iptables -t mangle -F SSREDIR);
-    system qw(iptables -t mangle -X SSREDIR);
     print("finish cleaning tables");
     system qw(iptables -t mangle -N SSREDIR) and die $!;
     # connection-mark -> packet-mark
