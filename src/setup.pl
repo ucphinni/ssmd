@@ -110,8 +110,6 @@ sub setup_iptables(){
 	system qw(iptables -t mangle -F SSREDIR);
 	system qw(iptables -t mangle -X SSREDIR);
     }
-    qx(iptables -t mangle -F SSREDIR);
-    qx(iptables -t mangle -X SSREDIR);
     system qw(iptables -t mangle -F OUTPUT);
     system qw(tables -t mangle -X OUTPUT);
     system qw(iptables -t mangle -F PREROUTING);
