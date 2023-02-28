@@ -107,11 +107,11 @@ sub mvpypkg($) {
 sub setup_iptables_str(){
     my $cmd ='';
     for my $i (qw(OUTPUT PREROUTING)) {
-	$cmd .= "iptables -t mangle -F $i \n";
+	$cmd .= "iptables -t mangle -F $i || exit 2\n";
     }
     $cmd .= "if iptables -t mangle -n -L SSREDIR > /dev/null 2>&1 ; then\n";
-    for my $i (qw(F X Z)) {
-	$cmd .= "  iptables -t mangle -$i SSREDIR \n";
+    for my $i (qw(F X)) {
+	$cmd .= "  iptables -t mangle -$i SSREDIR || exit 3\n";
     }
     $cmd .= "fi\n";
     
@@ -122,12 +122,11 @@ sub setup_iptables_str(){
     # connection-mark -> packet-mark
     $cmd .= "$iptbsol -m mark --mark 0x2333 -j RETURN $eol";
     for my $ip (qw(0.0.0.0/8 10.0.0.0/8 100.64.0.0/10
-		   127.0.0/8 169.254.0.0/16 172.16.0.0/12 192.0.0.0/24
-		   192.0.2.0/24 192.88.99.0/24 192.168.0.0/16
-		   198.18.0.0/15 198.51.100.0/24 203.0.113.0/24
-	         224.0.0.0/4 240.0.0.0/4 255.255.255.255/32)) {
+	 127.0.0/8 169.254.0.0/16 172.16.0.0/12 192.0.0.0/24
+	 192.0.2.0/24 192.88.99.0/24 192.168.0.0/16
+	 198.18.0.0/15 198.51.100.0/24 203.0.113.0/24
+	 224.0.0.0/4 240.0.0.0/4 255.255.255.255/32)) {
 	$cmd .= "$iptbsol -d $ip $eol";
-
     }
     $cmd .= "$iptbsol -p tcp --syn -j MARK --set-mark 0x2333 $eol";
     $cmd .= "$iptbsol -p udp -m conntrack --ctstate NEW -j MARK --set-mark 0x2333 $eol";
@@ -143,7 +142,6 @@ sub setup_iptables_str(){
     $cmd .="$iptbsol  -p tcp -m mark --mark 0x2333 -j TPROXY --on-ip 127.0.0.1 --on-port 1088 $eol";
     $cmd .="$iptbsol -p udp -m mark --mark 0x2333 -j TPROXY --on-ip 127.0.0.1 --on-port 1088 $eol";
     "$cmd exit 0";
-
 }
 sub fn_print($$) {
     my $fn = shift;
@@ -180,7 +178,7 @@ $sis
 echo "failed setup iptables"
 exit 1
 END
-
+qx(export IFACE='LO'; sh /etc/network/if-up.d/f0);
 system qw(/etc/local.d/iptables.start) and die $!;
 
 fn_print('/tmp/alpine_setup.cfg',<<END);
