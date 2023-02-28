@@ -108,7 +108,7 @@ sub setup_iptables_str(){
     my $eol = "&& \\\n";
     my $cmd ='';
     for my $i (qw(OUTPUT PREROUTING)) {
-	for my $j (qw(F X)) {
+	for my $j (qw(F )) {
 	    $cmd .= "iptables -t mangle -$j $i $eol";
 	}
     }
