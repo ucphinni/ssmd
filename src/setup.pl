@@ -182,7 +182,7 @@ echo "failed setup iptables"
 exit 1
 END
 
-system qw(/etc/local.d/modprobes.start) and die $!;
+system qw(/etc/local.d/iptables.start) and die $!;
 
 fn_print('/tmp/alpine_setup.cfg',<<END);
 # Example answer file for setup-alpine script
