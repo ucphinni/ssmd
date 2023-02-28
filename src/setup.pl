@@ -109,7 +109,7 @@ sub setup_iptables_str(){
     for my $i (qw(OUTPUT PREROUTING)) {
 	$cmd .= "iptables -t mangle -F $i \n";
     }
-    $cmd .= "if iptables mangle -n --list SSREDIR > /dev/null 2>&1 ; then\n";
+    $cmd .= "if iptables -t mangle -n -L SSREDIR > /dev/null 2>&1 ; then\n";
     for my $i (qw(F X Z)) {
 	$cmd .= "  iptables -t mangle -$i SSREDIR \n";
     }
