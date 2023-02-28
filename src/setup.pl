@@ -104,49 +104,46 @@ sub mvpypkg($) {
     $cmd .= $pkg;
     print qx"$cmd";
 }
-sub setup_iptables(){
+sub setup_iptables_str(){
     system qw(iptables -n --list SSREDIR >/dev/null 2>&1);
     if ($?) {
 	system qw(iptables -t mangle -F SSREDIR);
 	system qw(iptables -t mangle -X SSREDIR);
     }
-    system qw(iptables -t mangle -F OUTPUT);
-    system qw(tables -t mangle -X OUTPUT);
-    system qw(iptables -t mangle -F PREROUTING);
-    system qw(iptables -t mangle -X PREROUTING);
-    print("finish cleaning tables");
-    system qw(iptables -t mangle -N SSREDIR) and die $!;
+    my $eol = "&& \\\n";
+    my $cmd ='';
+    for my $i (qw(OUTPUT PREROUTING)) {
+	for my $j (qw(F X)) {
+	    $cmd .= "iptables -t mangle -$j $i $eol";
+	}
+    }
+    $cmd .= "iptables -t mangle -N SSREDIR $eol";
+    my $iptbsol = "iptables -t mangle -A SSREDIR ";
+    $cmd .= "$iptbsol -j CONNMARK --restore-mark $eol";
     # connection-mark -> packet-mark
-    system qw(iptables -t mangle -A SSREDIR -j CONNMARK --restore-mark) and die $!;
-    system qw(iptables -t mangle -A SSREDIR -m mark --mark 0x2333 -j RETURN) and die $!;
-    for my $ip (qw(0.0.0.0/8 10.0.0.0/8 100.64.0.0/10 127.0.0/8 169.254.0.0/16 172.16.0.0/12 192.0.0.0/24
-		  192.0.2.0/24 192.88.99.0/24 192.168.0.0/16 198.18.0.0/15 198.51.100.0/24 203.0.113.0/24
+    $cmd .= "$iptbsol -m mark --mark 0x2333 -j RETURN $eol";
+    for my $ip (qw(0.0.0.0/8 10.0.0.0/8 100.64.0.0/10
+		   127.0.0/8 169.254.0.0/16 172.16.0.0/12 192.0.0.0/24
+		   192.0.2.0/24 192.88.99.0/24 192.168.0.0/16
+		   198.18.0.0/15 198.51.100.0/24 203.0.113.0/24
 	         224.0.0.0/4 240.0.0.0/4 255.255.255.255/32)) {
-	system qw(iptables -t mangle -A SSREDIR -d), $ip and die $!;
+	$cmd .= "$iptbsol -d $ip $eol";
 
     }
-    system qw"iptables -t mangle -A SSREDIR -p tcp --syn -j MARK --set-mark 0x2333" and die $!;
-    system qw"iptables -t mangle -A SSREDIR -p udp -m conntrack --ctstate NEW -j MARK --set-mark 0x2333"
-	and die $!;
-    system qw"iptables -t mangle -A SSREDIR -j CONNMARK --save-mark" and die $!;
-    system qw(iptables -t mangle -A OUTPUT -m owner --uid-owner root -j RETURN ) and die $!;    
-    system qw(iptables -t mangle -A OUTPUT -p tcp -m addrtype --src-type LOCAL ! --dst-type LOCAL -j SSREDIR)
-	and die $!;
-    system qw(iptables -t mangle -A OUTPUT -p udp -m addrtype --src-type LOCAL ! --dst-type LOCAL -j SSREDIR)
-	and die $!;
-
-     # proxy traffic passing through this machine (other->other)
-    system qw(iptables -t mangle -A PREROUTING -p tcp -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -j SSREDIR)
-	and die $!;
-    system qw(iptables -t mangle -A PREROUTING -p udp -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -j SSREDIR)
-	and die $!;
-
-    # hand over the marked package to TPROXY for processing
-    system qw(iptables -t mangle -A PREROUTING -p tcp -m mark --mark 0x2333 -j TPROXY --on-ip 127.0.0.1 --on-port 1088)
-	and die $!;
-    system qw(iptables -t mangle -A PREROUTING -p udp -m mark --mark 0x2333 -j TPROXY --on-ip 127.0.0.1 --on-port 1088)
-	and die $!;
-
+    $cmd .= "$iptbsol -p tcp --syn -j MARK --set-mark 0x2333 $eol";
+    $cmd .= "$iptbsol -p udp -m conntrack --ctstate NEW -j MARK --set-mark 0x2333 $eol";
+    $cmd .= "$iptbsol -j CONNMARK --save-mark $eol";
+    $iptbsol = 'iptables -t mangle -A OUTPUT'; # chg ip tbls start of line
+    $cmd .= "$iptbsol -m owner --uid-owner root -j RETURN $eol";    
+    $cmd .= "$iptbsol -p tcp -m addrtype --src-type LOCAL ! --dst-type LOCAL -j SSREDIR $eol";
+    $cmd .= "$iptbsol -p udp -m addrtype --src-type LOCAL ! --dst-type LOCAL -j SSREDIR $eol";
+    $iptbsol = 'iptables -t mangle -A PREROUTING';
+    # proxy traffic passing through this machine (other->other)
+    $cmd .= "iptbsol -p tcp -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -j SSREDIR $eol";
+    $cmd .="iptbsol -p udp -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -j SSREDIR $eol";
+    $cmd .="iptbsol  -p tcp -m mark --mark 0x2333 -j TPROXY --on-ip 127.0.0.1 --on-port 1088 $eol";
+    $cmd .="iptbsol -p udp -m mark --mark 0x2333 -j TPROXY --on-ip 127.0.0.1 --on-port 1088 $eol";
+    "$cmd && \\\nexit 0";
 
 }
 sub fn_print($$) {
@@ -175,11 +172,12 @@ ip rule add fwmark 9011 table 100
 ip route add local default dev lo table 100
 END
 
-fn_exe '/etc/local.d/modprobes.start', <<END;
+$sis = setup_iptables_str;
+fn_exe '/etc/local.d/iptables.start', <<END;
 modprobe -v ip_tables
 modprobe -v ip6_tables
 modprobe -v iptable_nat
-
+$sis
 END
 
 system qw(/etc/local.d/modprobes.start) and die $!;
