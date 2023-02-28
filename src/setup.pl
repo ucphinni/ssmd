@@ -112,8 +112,10 @@ sub setup_iptables_str(){
 	    $cmd .= "iptables -t mangle -$j $i $eol";
 	}
     }
-    $cmd .= "iptables -t mangle -N SSREDIR $eol";
+    $cmd .= "iptables -t mangle -X SSREDIR $eol";
+    $cmd .= "iptables -t mangle -Z SSREDIR $eol";
     my $iptbsol = "iptables -t mangle -A SSREDIR ";
+    $cmd .= "iptables -t mangle -N SSREDIR $eol";
     $cmd .= "$iptbsol -j CONNMARK --restore-mark $eol";
     # connection-mark -> packet-mark
     $cmd .= "$iptbsol -m mark --mark 0x2333 -j RETURN $eol";
