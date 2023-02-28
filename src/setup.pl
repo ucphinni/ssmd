@@ -105,15 +105,17 @@ sub mvpypkg($) {
     print qx"$cmd";
 }
 sub setup_iptables_str(){
-    my $eol = "&& \\\n";
     my $cmd ='';
-    for my $i (qw(OUTPUT PREROUTING SSREDIR)) {
-	for my $j (qw(F )) {
-	    $cmd .= "iptables -t mangle -$j $i $eol";
-	}
+    for my $i (qw(OUTPUT PREROUTING)) {
+	$cmd .= "iptables -t mangle -F $i \n";
     }
-    $cmd .= "iptables -t mangle -X SSREDIR $eol";
-    $cmd .= "iptables -t mangle -Z SSREDIR $eol";
+    $cmd .= "if iptables mangle -n --list SSREDIR > /dev/null 2>&1 ; then\n"
+    for my $i (qw(F X Z)) {
+	$cmd .= "  iptables -t mangle -$ SSREDIR \n";
+    }
+    $cmd .= "fi\n";
+    
+    my $eol = "&& \\\n";
     my $iptbsol = "iptables -t mangle -A SSREDIR ";
     $cmd .= "iptables -t mangle -N SSREDIR $eol";
     $cmd .= "$iptbsol -j CONNMARK --restore-mark $eol";
