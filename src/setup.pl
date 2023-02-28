@@ -111,7 +111,7 @@ sub setup_iptables_str(){
     }
     $cmd .= "if iptables mangle -n --list SSREDIR > /dev/null 2>&1 ; then\n";
     for my $i (qw(F X Z)) {
-	$cmd .= "  iptables -t mangle -$ SSREDIR \n";
+	$cmd .= "  iptables -t mangle -$i SSREDIR \n";
     }
     $cmd .= "fi\n";
     
