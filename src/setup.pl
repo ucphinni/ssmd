@@ -139,11 +139,11 @@ sub setup_iptables_str(){
     $cmd .= "$iptbsol -p udp -m addrtype --src-type LOCAL ! --dst-type LOCAL -j SSREDIR $eol";
     $iptbsol = 'iptables -t mangle -A PREROUTING';
     # proxy traffic passing through this machine (other->other)
-    $cmd .= "iptbsol -p tcp -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -j SSREDIR $eol";
-    $cmd .="iptbsol -p udp -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -j SSREDIR $eol";
-    $cmd .="iptbsol  -p tcp -m mark --mark 0x2333 -j TPROXY --on-ip 127.0.0.1 --on-port 1088 $eol";
-    $cmd .="iptbsol -p udp -m mark --mark 0x2333 -j TPROXY --on-ip 127.0.0.1 --on-port 1088 $eol";
-    "$cmd && \\\nexit 0";
+    $cmd .= "$iptbsol -p tcp -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -j SSREDIR $eol";
+    $cmd .="$iptbsol -p udp -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -j SSREDIR $eol";
+    $cmd .="$iptbsol  -p tcp -m mark --mark 0x2333 -j TPROXY --on-ip 127.0.0.1 --on-port 1088 $eol";
+    $cmd .="$iptbsol -p udp -m mark --mark 0x2333 -j TPROXY --on-ip 127.0.0.1 --on-port 1088 $eol";
+    "$cmd exit 0";
 
 }
 sub fn_print($$) {
@@ -178,6 +178,8 @@ modprobe -v ip_tables
 modprobe -v ip6_tables
 modprobe -v iptable_nat
 $sis
+echo "failed setup iptables"
+exit 1
 END
 
 system qw(/etc/local.d/modprobes.start) and die $!;
