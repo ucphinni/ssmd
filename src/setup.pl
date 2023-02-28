@@ -105,11 +105,6 @@ sub mvpypkg($) {
     print qx"$cmd";
 }
 sub setup_iptables_str(){
-    system qw(iptables -n --list SSREDIR >/dev/null 2>&1);
-    if ($?) {
-	system qw(iptables -t mangle -F SSREDIR);
-	system qw(iptables -t mangle -X SSREDIR);
-    }
     my $eol = "&& \\\n";
     my $cmd ='';
     for my $i (qw(OUTPUT PREROUTING)) {
