@@ -18,7 +18,7 @@ sub set_repo_file($$) {
     my @ret = ();
     open F,"/etc/apk/repositories" or die $!;
     while (<F>) {
-	/^\s*\#?\s*https?\:/ and next;
+	/^\s*(?:\@\S+)?\s*\#?\s*https?\:/ and next;
        push @ret, $_;
     }
     close F or die $!;
@@ -26,6 +26,7 @@ sub set_repo_file($$) {
     print F @ret;
     print F "$url/$ver/main\n";
     $ver eq 'edge' and print F "$url/$ver/community\n";
+    $ver eq 'edge' and print F "\@community $url/latest-stable/community\n";
     $ver eq 'edge' and print F "\@testing $url/$ver/testing\n";
     close F or die $!;
 }
@@ -83,11 +84,13 @@ get_to_edge();
 system qw(mount -o remount,size=128K   /run);
 system qw(mount -o remount,size=310000K / );
 system qw(
-  apk add shadowsocks-libev@testing iptables ip6tables py3-aiohttp py3-aiohttp-socks
+    apk add shadowsocks-libev@testing iptables
+    ip6tables py3-aiohttp py3-aiohttp-socks
     ssl_client py3-psutil python3 py3-aiofiles rng-tools
     cifs-utils aria2-daemon atop 
     py3-python-socks transmission-daemon  py3-transmission-rpc
-    flexget py3-pip
+    flexget py3-pip nss freetype harfbuzz ca-certificates
+    ttf-freefont nodejs yarn
     );
 
 sub rmflexgetui() {
