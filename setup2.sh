@@ -27,7 +27,7 @@ if [ ! -d ssmd ]; then
     git clone https://github.com/ucphinni/ssmd.git
 fi
 
-cd ssmd
+cd ssmd || exit 1
 git checkout dev
 git pull
 cd src
