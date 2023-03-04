@@ -19,8 +19,8 @@ fi
 if [ "$w_miniperl" -eq 0 -a "$w_git"  -eq 0 ]; then
     apk add miniperl git
 else 
-    [ "$w_miniperl" -eq 0 ] && apk add miniperl
-    [ "$w_git"  -eq 0 ] && apk add git
+    [ "$w_miniperl" -ne 0 -a "$w_perl" -ne 0 ] && apk add miniperl
+    [ "$w_git"  -ne 0 ] && apk add git
 fi
 export SETUP_DOCKER=0
 if [ ! -d ssmd ]; then
