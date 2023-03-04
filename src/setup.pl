@@ -26,7 +26,6 @@ sub set_repo_file($$) {
     print F @ret;
     print F "$url/$ver/main\n";
     $ver eq 'edge' and print F "$url/$ver/community\n";
-    $ver eq 'edge' and print F "\@community $url/latest-stable/community\n";
     $ver eq 'edge' and print F "\@testing $url/$ver/testing\n";
     close F or die $!;
 }
@@ -90,7 +89,7 @@ system qw(
     cifs-utils aria2-daemon atop 
     py3-python-socks transmission-daemon  py3-transmission-rpc
     flexget py3-pip nss freetype harfbuzz ca-certificates
-    ttf-freefont nodejs yarn
+    ttf-freefont nodejs yarn chromium
     );
 
 sub rmflexgetui() {
