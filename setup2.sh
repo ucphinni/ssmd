@@ -39,5 +39,5 @@ else
     apk del miniperl
 fi
 
-[ "$w_git"  -eq 0 ] && apk del git
+[ "$w_git"  -ne 0 ] && apk del git
 
