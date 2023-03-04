@@ -11,9 +11,9 @@ let w_git=$?
 which perl > /dev/null
 let w_perl=$?
 
-if [ "w_perl" -eq 0 ]; then
+if [ "$w_perl" -eq 0 ]; then
     # we dont need mini perl
-    w_miniperl = 1
+    w_miniperl= 1
 fi
 
 if [ "$w_miniperl" -eq 0 -a "$w_git"  -eq 0 ]; then
