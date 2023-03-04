@@ -28,9 +28,9 @@ if [ ! -d ssmd ]; then
 fi
 
 cd ssmd || exit 1
-git checkout dev
-git pull
-cd src
+git checkout dev || exit 1
+git pull || exit 1
+cd src || exit 1
 
 if [ "$w_perl" -eq 0 ]; then
     perl setup.pl
