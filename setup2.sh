@@ -32,11 +32,11 @@ git checkout dev
 git pull
 cd src
 
-if [ "$w_miniperl" -eq 0 ]; then
+if [ "$w_perl" -eq 0 ]; then
+    perl setup.pl
+else
     miniperl setup.pl
     apk del miniperl
-else
-    perl setup.pl
 fi
 
 [ "$w_git"  -eq 0 ] && apk del git
