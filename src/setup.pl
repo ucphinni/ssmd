@@ -164,7 +164,7 @@ rmflexgetui;
 
 system qw(rc-update add local) and die $!;
 
-fn_exe '/etc/network/if-up.d/f0', <<END;
+fn_exe '/etc/network/if-up.d/f0', <<'END';
 #!/bin/ash
 [ "$IFACE" = "lo" ] || exit 0
 ip rule add fwmark 9011 table 100
