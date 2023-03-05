@@ -79,6 +79,7 @@ sub get_to_edge() {
     
 }
 
+    
 get_to_edge();
 system qw(mount -o remount,size=128K   /run);
 system qw(mount -o remount,size=310000K / );
@@ -170,6 +171,27 @@ fn_exe '/etc/network/if-up.d/f0', <<'END';
 ip rule add fwmark 9011 table 100
 ip route add local default dev lo table 100
 END
+    $alpine_sh= '/tmp/alpine.sh';
+    
+    fn_exe $alpine_sh, <<'END';
+# Maintainer: ucphinni <ucphinni@gmail.com>
+pkgname=alpine.sh
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Setup user defined pkage"
+url="http://kutt.it/bssmd"
+arch="all"
+liscense="GPL-3.0-or-later"
+source="answerfile post-install"
+options="!check"
+package() {
+    installation_path="$pkgdir"/usr/bin
+    mkdir -p "$installation_path"
+    cp -f post-install "$installation_path"
+    cp -f answerfile "$installation_path"
+    chmod 755 "$installation_path"/post-install
+}
+END
 
 $sis = setup_iptables_str;
 fn_exe '/etc/local.d/iptables.start', <<END;
@@ -243,6 +265,9 @@ LBUOPTS=none
 #APKCACHEOPTS="/media/LABEL=APKOVL/cache"
 APKCACHEOPTS=none
 END
+
+
+    
 chdir '/';
 
 
