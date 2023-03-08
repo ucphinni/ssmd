@@ -84,14 +84,16 @@ get_to_edge();
 system qw(mount -o remount,size=128K   /run);
 system qw(mount -o remount,size=310000K / );
 system qw(
-    apk add shadowsocks-libev@testing iptables
+    # apk add shadowsocks-libev@testing iptables
     ip6tables py3-aiohttp py3-aiohttp-socks
     ssl_client py3-psutil python3 py3-aiofiles rng-tools
     cifs-utils aria2-daemon atop 
     py3-python-socks transmission-daemon  py3-transmission-rpc
     flexget py3-pip nss freetype harfbuzz ca-certificates
     ttf-freefont nodejs yarn chromium perl
-    alpine-sdk build-base apk-tools alpine-conf
+    );
+system qw(
+    apk add alpine-sdk build-base apk-tools alpine-conf
     busybox fakeroot syslinux xorriso squashfs-tools sudo
     );
 
