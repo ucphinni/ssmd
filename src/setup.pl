@@ -277,11 +277,9 @@ package() {
     chmod 755 "$installation_path"/iptables.start
 }
 END
-
-qx(export IFACE='LO'; sh /etc/network/if-up.d/f0);
-system qw(/etc/local.d/iptables.start) and die $!;
-
-
+exit 0;
+# qx(export IFACE='LO'; sh /etc/network/if-up.d/f0);
+# system qw(/etc/local.d/iptables.start) and die $!;
 
     
 chdir '/';
