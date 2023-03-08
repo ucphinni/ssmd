@@ -1,4 +1,4 @@
-#!/usr/bin/miniperl
+#!perl
 sub get_repo_url_line() {
     my @ret;
     open F,"/etc/apk/repositories" or die $!;
@@ -90,7 +90,7 @@ system qw(
     cifs-utils aria2-daemon atop 
     py3-python-socks transmission-daemon  py3-transmission-rpc
     flexget py3-pip nss freetype harfbuzz ca-certificates
-    ttf-freefont nodejs yarn chromium
+    ttf-freefont nodejs yarn chromium perl
     );
 
 sub rmflexgetui() {
@@ -160,41 +160,19 @@ sub fn_exe($$) {
     fn_print $fn, $str;
     chmod 0755, $fn or die $!;
 }
-setup_iptables;
 rmflexgetui;
+mkdir 'pkg',0755;
 
 system qw(rc-update add local) and die $!;
-
-fn_exe '/etc/network/if-up.d/f0', <<'END';
+fn_exe 'f0', <<'END';
 #!/bin/ash
 [ "$IFACE" = "lo" ] || exit 0
 ip rule add fwmark 9011 table 100
 ip route add local default dev lo table 100
 END
-    $alpine_sh= '/tmp/alpine.sh';
-    
-    fn_exe $alpine_sh, <<'END';
-# Maintainer: ucphinni <ucphinni@gmail.com>
-pkgname=alpine.sh
-pkgver=0.1.0
-pkgrel=1
-pkgdesc="Setup user defined pkage"
-url="http://kutt.it/bssmd"
-arch="all"
-liscense="GPL-3.0-or-later"
-source="answerfile post-install"
-options="!check"
-package() {
-    installation_path="$pkgdir"/usr/bin
-    mkdir -p "$installation_path"
-    cp -f post-install "$installation_path"
-    cp -f answerfile "$installation_path"
-    chmod 755 "$installation_path"/post-install
-}
-END
 
 $sis = setup_iptables_str;
-fn_exe '/etc/local.d/iptables.start', <<END;
+fn_exe 'iptables.start', <<END;
 modprobe -v ip_tables
 modprobe -v ip6_tables
 modprobe -v iptable_nat
@@ -202,10 +180,8 @@ $sis
 echo "failed setup iptables"
 exit 1
 END
-qx(export IFACE='LO'; sh /etc/network/if-up.d/f0);
-system qw(/etc/local.d/iptables.start) and die $!;
 
-fn_print('/tmp/alpine_setup.cfg',<<END);
+fn_print('answerfile',<<END);
 # Example answer file for setup-alpine script
 # If you don't want to use a certain option, then comment it out
 
@@ -265,6 +241,42 @@ LBUOPTS=none
 #APKCACHEOPTS="/media/LABEL=APKOVL/cache"
 APKCACHEOPTS=none
 END
+
+$alpine_sh= '/tmp/alpine.sh';
+    
+fn_exe $alpine_sh, <<'END';
+# Maintainer: ucphinni <ucphinni@gmail.com>
+pkgname=alpine.sh
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Setup user defined pkage"
+url="http://kutt.it/bssmd"
+arch="all"
+liscense="GPL-3.0-or-later"
+source="answerfile post-install f0 iptables.start"
+options="!check"
+package() {
+    installation_path="$pkgdir"/usr/bin
+    mkdir -p "$installation_path"
+    cp -f post-install "$installation_path"
+    cp -f answerfile "$installation_path"
+    chmod 755 "$installation_path"/post-install
+
+    installation_path="$pkgdir"/etc/network/if-up.d/
+    mkdir -p "$installation_path"
+    cp -f f0 "$installation_path"
+    chmod 755 "$installation_path"/f0
+
+    installation_path="$pkgdir"/etc/local.d/
+    mkdir -p "$installation_path"
+    cp -f iptables.start "$installation_path"
+    chmod 755 "$installation_path"/iptables.start
+}
+END
+
+qx(export IFACE='LO'; sh /etc/network/if-up.d/f0);
+system qw(/etc/local.d/iptables.start) and die $!;
+
 
 
     
