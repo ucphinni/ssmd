@@ -91,6 +91,8 @@ system qw(
     py3-python-socks transmission-daemon  py3-transmission-rpc
     flexget py3-pip nss freetype harfbuzz ca-certificates
     ttf-freefont nodejs yarn chromium perl
+    alpine-sdk build-base apk-tools alpine-conf
+    busybox fakeroot syslinux xorriso squashfs-tools sudo
     );
 
 sub rmflexgetui() {
