@@ -3,7 +3,7 @@ $uid = getpwuid($<);
 if ($uid eq 'build') {
     print("build running");
     chdir 'pkg' or die $!;
-    qx(SUDO=sudo $( yes '' | abuild-keygen -i -a ) );
+    qx'SUDO=sudo $( yes "" | abuild-keygen -i -a )';
     
     exit 0;
 }
