@@ -1,4 +1,5 @@
 #!perl
+my $START_CWD=$ENV{'PWD'};
 sub fn_print($$) {
     my $fn = shift;
     my $str = shift;
@@ -334,7 +335,7 @@ END
 system qw(adduser build -G abuild);
 qx(echo "%abuild ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/abuild);
 
-system 'su','build','-c',$^X. " " .$0;
+system 'su','build','-c',$^X. " " .$SSMD_INSTALL_DIR."/ssmd/src/setup.pl";
 
 exit 0;
 # qx(export IFACE='LO'; sh /etc/network/if-up.d/f0);
