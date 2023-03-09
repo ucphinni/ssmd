@@ -168,7 +168,7 @@ rmflexgetui;
 mkdir 'pkg',0755;
 
 system qw(rc-update add local) and die $!;
-fn_exe 'f0', <<'END';
+fn_exe 'pkg/f0', <<'END';
 #!/bin/ash
 [ "$IFACE" = "lo" ] || exit 0
 ip rule add fwmark 9011 table 100
@@ -176,7 +176,7 @@ ip route add local default dev lo table 100
 END
 
 $sis = setup_iptables_str;
-fn_exe 'iptables.start', <<END;
+fn_exe 'pkg/iptables.start', <<END;
 modprobe -v ip_tables
 modprobe -v ip6_tables
 modprobe -v iptable_nat
@@ -185,7 +185,7 @@ echo "failed setup iptables"
 exit 1
 END
 
-fn_print('answerfile',<<END);
+fn_print('pkg/answerfile',<<END);
 # Example answer file for setup-alpine script
 # If you don't want to use a certain option, then comment it out
 
@@ -246,10 +246,12 @@ LBUOPTS=none
 APKCACHEOPTS=none
 END
 
-$alpine_sh= '/tmp/alpine.sh';
-    
-fn_exe $alpine_sh, <<'END';
+fn_exe 'pkg/post-install', << 'END'
+END
+ 
+fn_print 'pkg/APKBUILD', << 'END';
 # Maintainer: ucphinni <ucphinni@gmail.com>
+
 pkgname=alpine.sh
 pkgver=0.1.0
 pkgrel=1
@@ -259,24 +261,23 @@ arch="all"
 liscense="GPL-3.0-or-later"
 source="answerfile post-install f0 iptables.start"
 options="!check"
+
 package() {
     installation_path="$pkgdir"/usr/bin
     mkdir -p "$installation_path"
-    cp -f post-install "$installation_path"
-    cp -f answerfile "$installation_path"
-    chmod 755 "$installation_path"/post-install
+    cp -pf answerfile post-install "$installation_path"
 
     installation_path="$pkgdir"/etc/network/if-up.d/
     mkdir -p "$installation_path"
-    cp -f f0 "$installation_path"
-    chmod 755 "$installation_path"/f0
+    cp -pf f0 "$installation_path"
 
     installation_path="$pkgdir"/etc/local.d/
     mkdir -p "$installation_path"
-    cp -f iptables.start "$installation_path"
-    chmod 755 "$installation_path"/iptables.start
+    cp -pf iptables.start "$installation_path"
 }
 END
+
+
 exit 0;
 # qx(export IFACE='LO'; sh /etc/network/if-up.d/f0);
 # system qw(/etc/local.d/iptables.start) and die $!;
