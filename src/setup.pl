@@ -35,7 +35,8 @@ if ($uid eq 'build') {
     system qw(abuild -r);
     system qw(sudo apk update);
     qx(mkdir -pv ~/tmp);
-    $custom_apk = qx(find $HOME/packages/ -name 'ssmd*.apk' | head -1);
+    my $HOME=$ENV{'HOME'};
+    $custom_apk = qx"find $HOME/packages/ -name 'ssmd*.apk' | head -1";
     print $custom_apk,"\n";
     my $arch= qx"abuild -A";
     chomp $arch;
