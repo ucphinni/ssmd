@@ -1,6 +1,7 @@
 #!perl
 $uid = getpwuid($<);
 if ($uid eq 'build') {
+    print("build running");
     chdir 'pkg' or die $!;
     qx(SUDO=sudo $( yes '' | abuild-keygen -i -a ) );
     
