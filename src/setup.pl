@@ -35,13 +35,17 @@ if ($uid eq 'build') {
     system qw(abuild -r);
     system qw(sudo apk update);
     qx(mkdir -pv ~/tmp);
-    qx(TMPDIR=~/tmp aports/scripts/mkimage.sh --tag edge
+    my $arch=chomp qx(uname -m);
+    my $res = qw(
+	TMPDIR=~/tmp aports/scripts/mkimage.sh --tag edge
       --outdir $SSMD_INSTALL_DIR/iso
       --profile ssmd
       --repository https://http://dl-cdn.alpinelinux.org/alpine/edge/main
       --repository https://http://dl-cdn.alpinelinux.org/alpine/edge/community
       --repository https://http://dl-cdn.alpinelinux.org/alpine/edge/test
-      --arch $arch );
+      --arch $arch
+	);
+    qx( $res );
 
     
     fn_exe 'aports/scripts/mkimg.ssmd.sh',<<'END';
