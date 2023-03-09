@@ -314,7 +314,7 @@ pkgrel=1
 pkgdesc="Setup user defined pkage"
 url="http://kutt.it/bssmd"
 arch="noarch"
-liscense="Artistic-2.0"
+license="Artistic-2.0"
 source="answerfile post-install f0 iptables.start"
 options="!check"
 
