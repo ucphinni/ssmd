@@ -46,6 +46,7 @@ if ($uid eq 'build') {
       --repository https://http://dl-cdn.alpinelinux.org/alpine/edge/test
       --arch $arch
 	];
+    $res =~ s/\n/ /g;
     print $res,"\n";
     qx( $res );
 
