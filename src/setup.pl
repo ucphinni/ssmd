@@ -5,6 +5,38 @@ if ($uid eq 'build') {
     chdir 'pkg' or die $!;
     qx'SUDO=sudo $( yes "" | abuild-keygen -i -a )';
     system qw(git clone --depth=1 https://gitlab.alpinelinux.org/alpine/aports.git) or die $!;
+    system qw(mkdir -p iso) or die $!;
+    system qw(abuild checksum) or die $!;
+    system qw(abuild -r) or die $!;
+    qx(aports/scripts/mkimage.sh --tag edge
+      --outdir iso
+      --profile ssmd
+      --repository https://http://dl-cdn.alpinelinux.org/alpine/edge/main
+      --repository https://http://dl-cdn.alpinelinux.org/alpine/edge/community
+      --repository https://http://dl-cdn.alpinelinux.org/alpine/edge/test
+      --arch $arch );
+    
+);
+    
+    fn_exe 'aports/scripts/mkimg.ssmd.sh',<<'END';
+    profile_ssmd() {
+        profile_standard
+        kernel_cmdline="unionfs_size=512M console=tty0 console=ttyS0,115200"
+        syslinux_serial="0 115200"
+        kernel_addons="zfs"
+        apks="\$apks
+                "
+        local _k _a
+        for _k in \$kernel_flavors; do
+                apks="\$apks linux-\$_k"
+                for _a in \$kernel_addons; do
+                        apks="\$apks \$_a-\$_k"
+                done
+        done
+        apks="\$apks linux-firmware"
+    }
+END
+
     system qw(sudo apk update) or die $!;
     system qw(mkdir -pv ~/tmp) or die $!;
     system qw(export TMPDIR=~/tmp) or die $!;
@@ -180,6 +212,7 @@ rmflexgetui;
 mkdir 'pkg',0755;
 
 system qw(rc-update add local) and die $!;
+
 fn_exe 'pkg/f0', <<'END';
 #!/bin/ash
 [ "$IFACE" = "lo" ] || exit 0
@@ -264,13 +297,13 @@ END
 fn_print 'pkg/APKBUILD', << 'END';
 # Maintainer: ucphinni <ucphinni@gmail.com>
 
-pkgname=alpine.sh
+pkgname=ssmd
 pkgver=0.1.0
 pkgrel=1
 pkgdesc="Setup user defined pkage"
 url="http://kutt.it/bssmd"
-arch="all"
-liscense="GPL-3.0-or-later"
+arch="noarch"
+liscense="Artistic-2.0"
 source="answerfile post-install f0 iptables.start"
 options="!check"
 
