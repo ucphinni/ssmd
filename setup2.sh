@@ -4,6 +4,9 @@ export SSMD_INSTALL_DIR=$HOME/ssmd_install
 rm -rf $SSMD_INSTALL_DIR
 mkdir -p "$SSMD_INSTALL_DIR"
 cd "$SSMD_INSTALL_DIR"
+f="$SSMD_INSTALL_DIR"
+while [[ $f != / ]]; do chmod +x "$f"; f=$(dirname "$f"); done;
+
 chmod a+x "$SSMD_INSTALL_DIR"
 mkdir -p iso pkg
 chmod 777 iso pkg
