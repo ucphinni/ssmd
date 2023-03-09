@@ -23,7 +23,9 @@ if ($uid eq 'build') {
     system qw(mkdir -p iso) or die $!;
     system qw(abuild checksum) or die $!;
     system qw(abuild -r) or die $!;
-    qx(aports/scripts/mkimage.sh --tag edge
+    system qw(sudo apk update) or die $!;
+    system qw(mkdir -pv ~/tmp) or die $!;
+    qx(TMPDIR=~/tmp aports/scripts/mkimage.sh --tag edge
       --outdir iso
       --profile ssmd
       --repository https://http://dl-cdn.alpinelinux.org/alpine/edge/main
@@ -51,9 +53,6 @@ if ($uid eq 'build') {
     }
 END
 
-    system qw(sudo apk update) or die $!;
-    system qw(mkdir -pv ~/tmp) or die $!;
-    system qw(export TMPDIR=~/tmp) or die $!;
     
     exit 0;
 }
