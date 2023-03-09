@@ -32,7 +32,7 @@ if ($uid eq 'build') {
     chdir "$SSMD_INSTALL_DIR/pkg" or die "$SSMD_INSTALL_DIR/pkg:$!";
     qx'SUDO=sudo $( yes "" | abuild-keygen -i -a )';
     system qw(abuild checksum);
-    system qw(abuild -r) or die "abuild:$!";
+    system qw(abuild -r);
     system qw(sudo apk update) or die $!;
     system qw(mkdir -pv ~/tmp) or die "mkdir:$!";
     qx(TMPDIR=~/tmp aports/scripts/mkimage.sh --tag edge
