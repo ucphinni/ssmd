@@ -1,6 +1,7 @@
 #!/bin/ash
 
-d=/tmp/ssmd_install
+d=$HOME/ssmd_install
+rm -rf $d
 mkdir -p "$d"
 cd "$d"
 
