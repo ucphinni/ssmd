@@ -19,21 +19,22 @@ $uid = getpwuid($<);
 if ($uid eq 'build') {
     print("build running\n");
     my $SSMD_INSTALL_DIR=$ENV{'SSMD_INSTALL_DIR'};
-    chdir "$SSMD_INSTALL_DIR/pkg" or die "$SSMD_INSTALL_DIR/pkg:$!";
-    qx'SUDO=sudo $( yes "" | abuild-keygen -i -a )';
+    chdir $SSMD_INSTALL_DIR or die $!;
     if (-d "aports") {
 	chdir "aports" or die $!;
 	system qw(git pull);
-	chdir ".." or die $!;
 	    
     }
     else {
 	system qw(git clone --depth=1 https://gitlab.alpinelinux.org/alpine/aports.git);
     }
-    system qw(abuild checksum) or die $!;
-    system qw(abuild -r) or die $!;
+
+    chdir "$SSMD_INSTALL_DIR/pkg" or die "$SSMD_INSTALL_DIR/pkg:$!";
+    qx'SUDO=sudo $( yes "" | abuild-keygen -i -a )';
+    system qw(abuild checksum) or die "abuild:$!";
+    system qw(abuild -r) or die "abuild:$!";
     system qw(sudo apk update) or die $!;
-    system qw(mkdir -pv ~/tmp) or die $!;
+    system qw(mkdir -pv ~/tmp) or die "mkdir:$!";
     qx(TMPDIR=~/tmp aports/scripts/mkimage.sh --tag edge
       --outdir $SSMD_INSTALL_DIR/iso
       --profile ssmd
