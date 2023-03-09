@@ -4,6 +4,8 @@ d=$HOME/ssmd_install
 rm -rf $d
 mkdir -p "$d"
 cd "$d"
+mkdir -p iso pkg
+chmod 777 iso pkg
 
 which miniperl > /dev/null 
 let w_miniperl=$?
