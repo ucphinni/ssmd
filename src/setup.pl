@@ -37,7 +37,7 @@ if ($uid eq 'build') {
     qx(mkdir -pv ~/tmp);
     my $arch= qx"uname -m";
     chomp $arch;
-    my $res = qw(
+    my $res = qq[
 	TMPDIR=~/tmp aports/scripts/mkimage.sh --tag edge
       --outdir $SSMD_INSTALL_DIR/iso
       --profile ssmd
@@ -45,7 +45,7 @@ if ($uid eq 'build') {
       --repository https://http://dl-cdn.alpinelinux.org/alpine/edge/community
       --repository https://http://dl-cdn.alpinelinux.org/alpine/edge/test
       --arch $arch
-	);
+	];
     print $res,"\n";
     qx( $res );
 
