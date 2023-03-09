@@ -1,7 +1,7 @@
 #!/bin/ash
 
 export SSMD_INSTALL_DIR=$HOME/ssmd_install
-rm -rf $SSMD_INSTALL_DIR
+# rm -rf $SSMD_INSTALL_DIR
 mkdir -p "$SSMD_INSTALL_DIR"
 cd "$SSMD_INSTALL_DIR"
 f="$SSMD_INSTALL_DIR"

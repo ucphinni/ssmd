@@ -20,7 +20,14 @@ if ($uid eq 'build') {
     my $SSMD_INSTALL_DIR=$ENV{'SSMD_INSTALL_DIR'};
     chdir "$SSMD_INSTALL_DIR/pkg" or die "$SSMD_INSTALL_DIR/pkg:$!";
     qx'SUDO=sudo $( yes "" | abuild-keygen -i -a )';
-    system qw(git clone --depth=1 https://gitlab.alpinelinux.org/alpine/aports.git);
+    if (-d "aports") {
+	chdir "aports" or die $!;
+	system qw(git pull);
+	chdir ".." or die $!;
+	    
+    }
+    else
+	system qw(git clone --depth=1 https://gitlab.alpinelinux.org/alpine/aports.git);
     system qw(abuild checksum) or die $!;
     system qw(abuild -r) or die $!;
     system qw(sudo apk update) or die $!;
