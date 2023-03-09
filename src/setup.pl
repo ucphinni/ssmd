@@ -18,7 +18,7 @@ $uid = getpwuid($<);
 if ($uid eq 'build') {
     print("build running");
     my $SSMD_INSTALL_DIR=$ENV{'SSMD_INSTALL_DIR'};
-    chdir "$SSMD_INSTALL_DIR/pkg" or die $!;
+    chdir "$SSMD_INSTALL_DIR/pkg" or die "$SSMD_INSTALL_DIR/pkg:$!";
     qx'SUDO=sudo $( yes "" | abuild-keygen -i -a )';
     system qw(git clone --depth=1 https://gitlab.alpinelinux.org/alpine/aports.git) or die $!;
     system qw(abuild checksum) or die $!;
