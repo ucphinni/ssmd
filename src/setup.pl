@@ -246,7 +246,7 @@ LBUOPTS=none
 APKCACHEOPTS=none
 END
 
-fn_exe 'pkg/post-install', << 'END'
+fn_exe 'pkg/post-install', << 'END';
 END
  
 fn_print 'pkg/APKBUILD', << 'END';
