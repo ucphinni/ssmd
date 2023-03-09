@@ -35,7 +35,9 @@ if ($uid eq 'build') {
     system qw(abuild -r);
     system qw(sudo apk update);
     qx(mkdir -pv ~/tmp);
-    my $arch= qx"uname -m";
+    $custom_apk = qx(find $HOME/packages/ -name 'ssmd*.apk' | head -1);
+    print $custom_apk,"\n";
+    my $arch= qx"abuild -A";
     chomp $arch;
     my $res = qq[
 	TMPDIR=~/tmp $SSMD_INSTALL_DIR/aports/scripts/mkimage.sh --tag edge
