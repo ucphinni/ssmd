@@ -16,7 +16,7 @@ sub fn_exe($$) {
 
 $uid = getpwuid($<);
 if ($uid eq 'build') {
-    print("build running");
+    print("build running\n");
     my $SSMD_INSTALL_DIR=$ENV{'SSMD_INSTALL_DIR'};
     chdir "$SSMD_INSTALL_DIR/pkg" or die "$SSMD_INSTALL_DIR/pkg:$!";
     qx'SUDO=sudo $( yes "" | abuild-keygen -i -a )';
