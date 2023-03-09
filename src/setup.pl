@@ -17,16 +17,16 @@ sub fn_exe($$) {
 $uid = getpwuid($<);
 if ($uid eq 'build') {
     print("build running");
-    chdir 'pkg' or die $!;
+    my $SSMD_INSTALL_DIR=$ENV{'SSMD_INSTALL_DIR'};
+    chdir "$SSMD_INSTALL_DIR/pkg" or die $!;
     qx'SUDO=sudo $( yes "" | abuild-keygen -i -a )';
     system qw(git clone --depth=1 https://gitlab.alpinelinux.org/alpine/aports.git) or die $!;
-    system qw(mkdir -p iso) or die $!;
     system qw(abuild checksum) or die $!;
     system qw(abuild -r) or die $!;
     system qw(sudo apk update) or die $!;
     system qw(mkdir -pv ~/tmp) or die $!;
     qx(TMPDIR=~/tmp aports/scripts/mkimage.sh --tag edge
-      --outdir iso
+      --outdir $SSMD_INSTALL_DIR/iso
       --profile ssmd
       --repository https://http://dl-cdn.alpinelinux.org/alpine/edge/main
       --repository https://http://dl-cdn.alpinelinux.org/alpine/edge/community

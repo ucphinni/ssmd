@@ -1,9 +1,9 @@
 #!/bin/ash
 
-d=$HOME/ssmd_install
-rm -rf $d
-mkdir -p "$d"
-cd "$d"
+export SSMD_INSTALL_DIR==$HOME/ssmd_install
+rm -rf $SSMD_INSTALL_DIR
+mkdir -p "$SSMD_INSTALL_DIR"
+cd "$SSMD_INSTALL_DIR"
 mkdir -p iso pkg
 chmod 777 iso pkg
 
