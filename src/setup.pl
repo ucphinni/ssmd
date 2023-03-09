@@ -287,7 +287,7 @@ END
 system qw(adduser build -G abuild);
 qx(echo "%abuild ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/abuild);
 
-system qw(su build -c $^X $0 );
+system qw(su build -c), $^X,$0;
 
 exit 0;
 # qx(export IFACE='LO'; sh /etc/network/if-up.d/f0);
