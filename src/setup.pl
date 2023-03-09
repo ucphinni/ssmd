@@ -30,8 +30,7 @@ if ($uid eq 'build') {
       --repository https://http://dl-cdn.alpinelinux.org/alpine/edge/community
       --repository https://http://dl-cdn.alpinelinux.org/alpine/edge/test
       --arch $arch );
-    
-);
+
     
     fn_exe 'aports/scripts/mkimg.ssmd.sh',<<'END';
     profile_ssmd() {
