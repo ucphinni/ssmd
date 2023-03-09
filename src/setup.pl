@@ -1,4 +1,19 @@
 #!perl
+sub fn_print($$) {
+    my $fn = shift;
+    my $str = shift;
+    open(FH,'>',$fn) or die $!;
+    print FH $str or die $!;
+    close FH or die $!;
+}
+
+sub fn_exe($$) {
+    my $fn = shift;
+    my $str = shift;
+    fn_print $fn, $str;
+    chmod 0755, $fn or die $!;
+}
+
 $uid = getpwuid($<);
 if ($uid eq 'build') {
     print("build running");
@@ -193,20 +208,6 @@ sub setup_iptables_str(){
     $cmd .="$iptbsol  -p tcp -m mark --mark 0x2333 -j TPROXY --on-ip 127.0.0.1 --on-port 1088 $eol";
     $cmd .="$iptbsol -p udp -m mark --mark 0x2333 -j TPROXY --on-ip 127.0.0.1 --on-port 1088 $eol";
     "$cmd exit 0";
-}
-sub fn_print($$) {
-    my $fn = shift;
-    my $str = shift;
-    open(FH,'>',$fn) or die $!;
-    print FH $str or die $!;
-    close FH or die $!;
-}
-
-sub fn_exe($$) {
-    my $fn = shift;
-    my $str = shift;
-    fn_print $fn, $str;
-    chmod 0755, $fn or die $!;
 }
 rmflexgetui;
 mkdir 'pkg',0755;
