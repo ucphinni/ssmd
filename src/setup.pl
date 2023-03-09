@@ -4,6 +4,10 @@ if ($uid eq 'build') {
     print("build running");
     chdir 'pkg' or die $!;
     qx'SUDO=sudo $( yes "" | abuild-keygen -i -a )';
+    system qw(git clone --depth=1 https://gitlab.alpinelinux.org/alpine/aports.git) or die $!;
+    system qw(sudo apk update) or die $!;
+    system qw(mkdir -pv ~/tmp) or die $!;
+    system qw(export TMPDIR=~/tmp) or die $!;
     
     exit 0;
 }
