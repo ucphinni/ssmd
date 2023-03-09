@@ -8,6 +8,7 @@ f="$SSMD_INSTALL_DIR"
 while [[ $f != / ]]; do chmod +x "$f"; f=$(dirname "$f"); done;
 
 chmod a+x "$SSMD_INSTALL_DIR"
+rm -rf iso pkg
 mkdir -p iso pkg
 chmod 777 iso pkg
 

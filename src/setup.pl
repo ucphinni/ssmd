@@ -216,7 +216,9 @@ sub setup_iptables_str(){
     "$cmd exit 0";
 }
 rmflexgetui;
-mkdir 'pkg',0755;
+my $SSMD_INSTALL_DIR=$ENV{'SSMD_INSTALL_DIR'};
+
+chdir $SSMD_INSTALL_DIR or die $!;
 
 system qw(rc-update add local) and die $!;
 
