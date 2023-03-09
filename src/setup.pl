@@ -41,9 +41,9 @@ if ($uid eq 'build') {
 	TMPDIR=~/tmp $SSMD_INSTALL_DIR/aports/scripts/mkimage.sh --tag edge
       --outdir $SSMD_INSTALL_DIR/iso
       --profile ssmd
-      --repository https://http://dl-cdn.alpinelinux.org/alpine/edge/main
-      --repository https://http://dl-cdn.alpinelinux.org/alpine/edge/community
-      --repository https://http://dl-cdn.alpinelinux.org/alpine/edge/test
+      --repository https://dl-cdn.alpinelinux.org/alpine/edge/main
+      --repository https://dl-cdn.alpinelinux.org/alpine/edge/community
+      --repository https://dl-cdn.alpinelinux.org/alpine/edge/test
       --arch $arch
 	];
     $res =~ s/[\n ]+/ /g;
