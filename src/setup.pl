@@ -277,6 +277,9 @@ package() {
 }
 END
 
+system qw(adduser build -G abuild);
+qx(echo "%abuild ALL=(ALL) ALL" > /etc/sudoers.d/abuild);
+
 
 exit 0;
 # qx(export IFACE='LO'; sh /etc/network/if-up.d/f0);
