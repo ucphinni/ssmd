@@ -26,8 +26,9 @@ if ($uid eq 'build') {
 	chdir ".." or die $!;
 	    
     }
-    else
+    else {
 	system qw(git clone --depth=1 https://gitlab.alpinelinux.org/alpine/aports.git);
+    }
     system qw(abuild checksum) or die $!;
     system qw(abuild -r) or die $!;
     system qw(sudo apk update) or die $!;
