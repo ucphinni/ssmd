@@ -1,4 +1,11 @@
 #!perl
+$uid = getpwuid($<);
+if ($uid eq 'build') {
+    chdir 'pkg' or die $!;
+    qx(SUDO=sudo $( yes '' | abuild-keygen -i -a ) );
+    
+    exit 0;
+}
 sub get_repo_url_line() {
     my @ret;
     open F,"/etc/apk/repositories" or die $!;
@@ -278,8 +285,9 @@ package() {
 END
 
 system qw(adduser build -G abuild);
-qx(echo "%abuild ALL=(ALL) ALL" > /etc/sudoers.d/abuild);
+qx(echo "%abuild ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/abuild);
 
+system qw(su build -c $^X $0 );
 
 exit 0;
 # qx(export IFACE='LO'; sh /etc/network/if-up.d/f0);
