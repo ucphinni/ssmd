@@ -35,7 +35,7 @@ if ($uid eq 'build') {
     system qw(abuild -r);
     system qw(sudo apk update);
     qx(mkdir -pv ~/tmp);
-    my $arch=chomp qx(uname -m);
+    my $arch=chomp qx"uname -m";
     my $res = qw(
 	TMPDIR=~/tmp aports/scripts/mkimage.sh --tag edge
       --outdir $SSMD_INSTALL_DIR/iso
@@ -45,6 +45,7 @@ if ($uid eq 'build') {
       --repository https://http://dl-cdn.alpinelinux.org/alpine/edge/test
       --arch $arch
 	);
+    print $res,"\n";
     qx( $res );
 
     
