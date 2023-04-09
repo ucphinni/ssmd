@@ -37,7 +37,7 @@ if ($uid eq 'build') {
     qx(mkdir -pv ~/tmp);
     my $HOME=$ENV{'HOME'};
     $custom_apk = qx"find $HOME/packages/ -name 'ssmd*.apk' | head -1";
-    print $custom_apk,"\n";
+    chomp $custom_apk;
     my $arch= qx"abuild -A";
     chomp $arch;
     my $res = qq[
@@ -46,10 +46,10 @@ if ($uid eq 'build') {
       --profile ssmd
       --repository https://dl-cdn.alpinelinux.org/alpine/edge/main
       --repository https://dl-cdn.alpinelinux.org/alpine/edge/community
-      --repository https://dl-cdn.alpinelinux.org/alpine/edge/test
+      --repository https://dl-cdn.alpinelinux.org/alpine/edge/testing
       --arch $arch
 	];
-    $res =~ s/[\n ]+/ /g;
+    $res =~ s/^\s*|[\n ]+/ /g;
     print $res,"\n";
     qx( $res );
 
