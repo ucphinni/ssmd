@@ -46,13 +46,30 @@ BEGIN
   select 'KINGDOMHALL' kh,ST_Union(st_buffer(geom,0)) geom from fst_cong
   where active;
   
-  CREATE OR REPLACE VIEW fsv_road as
-  select COALESCE(raa.primename,r.primename) oprimename,r.*
+CREATE OR REPLACE VIEW fsv_road as
+WITH cong AS (
+    WITH a AS (
+      SELECT
+        fst_cong.id cname,
+        fst_cong.geom,active,
+        buffer_distance_feet / (feet_per_degree * cos(radians(ST_Y(ST_StartPoint(fst_cong.geom))))) AS buffer_distance_degrees
+      FROM fst_cong
+      CROSS JOIN (
+        SELECT 
+          55.0 AS buffer_distance_feet,  -- feet
+          364259.9462 AS feet_per_degree  -- FOUND ON internet... yay!
+      ) AS params
+    )
+    SELECT a.cname, ST_Buffer(a.geom, buffer_distance_degrees) geom,active
+    FROM a
+)
+select COALESCE(raa.primename,r.primename) oprimename,r.*
   from (
-       select r.* from fst_road r, fst_cong c
+       select r.* from fst_road r, cong c
        where ST_contains(c.geom,r.geom) and c.active
        union all
-       select r.* from fst_road r, fst_cong c
+       select r.* from fst_road r,
+    cong c
        where ST_intersects(c.geom,r.geom) and active and exists(
              select 1 from fst_addr a, fsv_addr2roadside rs where rs.road_id = r.id and st_contains(c.geom,a.geom) and rs.addr_id = a.id
        )
@@ -74,11 +91,6 @@ UPDATE fst_dnc d
   FROM  a
     WHERE d.zip = a.zip AND d.primename  = a.primename 
         AND d.add_number = a.add_number;
-    
-    SELECT a.post_code,a.primename , a.add_number,count(*)  FROM fsv_addr a,fst_dnc d
-        WHERE a.primename = d.primename AND place_type = 'Residence' AND d.add_number = a.add_number 
-        GROUP BY 1,2,3
-        HAVING count(*) != 1;
 
 
 create or replace view fsv_iw as
@@ -108,13 +120,74 @@ regexp_replace(
 from a,cr where a.id between cr.startid and cr.endid
 and cr.startid <> a.id;
 
-CREATE OR REPLACE VIEW fsv_terrroad AS
+CREATE OR REPLACE VIEW fsv_street AS 
+WITH merged_lines AS (
+  SELECT primename, ST_Union(geom) AS geom
+  FROM fsv_road
+  GROUP BY primename
+), buffer_params AS (
+  SELECT
+    merged_lines.primename,
+    merged_lines.geom,
+    buffer_distance_feet / (feet_per_degree * cos(radians(ST_Y(ST_StartPoint(merged_lines.geom))))) AS buffer_distance_degrees
+  FROM merged_lines
+  CROSS JOIN (
+    SELECT 
+      10.0 AS buffer_distance_feet,  -- feet
+      364259.9462 AS feet_per_degree  -- FOUND ON internet... yay!
+  ) AS params
+) 
+, unwrapped_polygons AS MATERIALIZED (
+  SELECT b.primename,c.cname,c.geom cgeom,
+         (ST_Polygonize(ST_Buffer(b.geom, b.buffer_distance_degrees,'endcap=square join=mitre mitre_limit=1.0'))) AS geom,
+         min(buffer_distance_degrees) buffer_distance_degrees
+  FROM buffer_params b,(
+    WITH a AS (
+      SELECT
+        fst_cong.id cname,
+        fst_cong.geom,
+        buffer_distance_feet / (feet_per_degree * cos(radians(ST_Y(ST_StartPoint(fst_cong.geom))))) AS buffer_distance_degrees
+      FROM fst_cong
+      CROSS JOIN (
+        SELECT 
+          15.0 AS buffer_distance_feet,  -- feet
+          364259.9462 AS feet_per_degree  -- FOUND ON internet... yay!
+      ) AS params
+    )
+    SELECT a.cname, ST_Buffer(a.geom, buffer_distance_degrees) geom
+    FROM a
+  ) c 
+  GROUP BY b.primename, c.cname, c.geom
+)
+  SELECT *
+  FROM (
+    SELECT
+      min(r.id) id,
+      CASE
+        WHEN st_contains(p.cgeom, g.dump) OR (ST_Intersects(p.cgeom, g.dump) AND NOT ST_Contains(p.cgeom, g.dump) AND 
+          ST_Area(ST_Difference(g.dump, p.cgeom)) / NULLIF(ST_Area(g.dump), 0) < 0.1)
+        THEN g.dump
+        ELSE ST_Intersection(g.dump, p.cgeom)
+      END AS geom,
+      p.cname, p.primename, p.cgeom AS cgeom
+    FROM unwrapped_polygons p
+    JOIN fsv_road r ON (p.primename = r.primename OR (p.primename IS NULL AND r.primename IS NULL))  
+    JOIN LATERAL (
+      SELECT (ST_Dump(p.geom)).geom AS dump
+    ) g ON true
+    WHERE ST_Contains(p.geom, r.geom) AND ST_Contains(p.cgeom, r.geom)
+    GROUP BY g.dump, p.cname, p.primename, p.cgeom
+  ) p
+  WHERE st_contains(p.cgeom, p.geom) OR (ST_Intersects(p.cgeom, p.geom) AND NOT ST_Contains(p.cgeom, p.geom) AND 
+    ST_Area(ST_Difference(p.geom, p.cgeom)) / NULLIF(ST_Area(p.geom), 0) < 0.1);
+
+CREATE MATERIALIZED VIEW fsv_terrroad AS
 with a as (
 SELECT DISTINCT ON (r.id) r.*, iw.tnum,
 iw.rotation,
-iw.scale
+iw.SCALE, s.cname,s.id street_id
 FROM fst_road r
-join fsv_congs c on st_intersects(r.geom,st_envelope(c.geom))
+join fsv_street s on st_intersects(s.geom,r.geom)  AND s.primename = r.primename
 JOIN fsv_iw iw ON (st_intersects(ST_GeomFromText(iw.wkt, 4326), r.geom))
 WHERE ((iw.rotation IS NULL) OR (iw.rotation >= ('-1000'::integer)::double precision))
 ), b AS (
@@ -123,37 +196,13 @@ union all
 select DISTINCT r.*,
 NULL,
 NULL::double precision,
-NULL::double precision
-from fst_road r,fst_cong c
-where r.id not in (select id from a) and c.active and st_intersects(r.geom,c.geom)
+NULL::double precision, s.cname,s.id street_id
+from fst_road r,fsv_street s
+where r.id not in (select id from a) and st_intersects(s.geom,r.geom) AND s.primename = r.primename
 )
-SELECT b.*,c.color FROM b
+SELECT DISTINCT ON (b.id,b.cname) b.*,c.color FROM b
 LEFT JOIN colors c ON c.tnum = b.tnum;
 
-CREATE OR REPLACE VIEW fsv_street AS
-WITH merged_lines AS (
-  SELECT primename, ST_Union( geom) AS geom
-  FROM fsv_terrroad
-  WHERE roadclass NOT IN ('Ramp')
-  GROUP BY primename
-), buffer_params AS (
-  SELECT merged_lines.primename, merged_lines.geom,
-         buffer_distance_feet / (feet_per_degree * cos(radians(ST_Y(st_startpoint( merged_lines.geom))))) AS buffer_distance_degrees
-  FROM merged_lines
-  CROSS JOIN (
-    SELECT 
-      10.0 AS buffer_distance_feet,  -- feet
-      364259.9462 AS feet_per_degree  -- FOUND ON internet... yay!
-  ) AS params
-), unwrapped_polygons AS (
-  SELECT primename, 
-         (ST_Dump(ST_Polygonize(ST_Buffer(geom, buffer_distance_degrees)))).geom AS geom
-  FROM buffer_params
-  GROUP BY primename, buffer_distance_degrees
-)
-SELECT min(r.id) id,p.geom FROM unwrapped_polygons p,fsv_terrroad r
-  WHERE p.primename = r.primename AND st_intersects(p.geom,r.geom)
-  GROUP BY p.geom;
 
 create or replace view ntaddr as
 select tr.tnum,ST_Azimuth(a.geom, ST_ClosestPoint(r.geom, a.geom)) rotate,
@@ -312,29 +361,29 @@ select distinct on (r.id)  a.id addr_id,r.* from fst_road r,fsv_addr2roadside  r
 
 create materialized view tnroadi as 
 WITH a AS MATERIALIZED (
-SELECT a.add_number % 2 = 0 AS is_even,  a.*
-    FROM ntaddr a
-    join fsv_addr2roadside rs ON rs.addr_id = a.id AND a.place_type = 'Residence' 
+SELECT a.add_number % 2 = 0 AS is_even, tr.tnum,tr.street_id, a.*
+    FROM fst_addr a
+    join fsv_addr2roadside rs ON rs.addr_id = a.id AND a.place_type = 'Residence'
+    JOIN fsv_terrroad tr ON tr.id = rs.road_id AND tr.primename = a.primename
 ),
 b AS MATERIALIZED (
-    SELECT a.tnum, is_even,  primename, MIN(add_number) AS lo, MAX(add_number) AS hi
+    SELECT a.tnum, a.street_id,is_even,  primename, MIN(add_number) AS lo, MAX(add_number) AS hi
     FROM a
-    GROUP BY a.tnum, is_even, primename
-),
-g AS MATERIALIZED (
-    SELECT tnum, primename , COUNT(*) AS cnt
+    GROUP BY a.tnum, a.street_id,is_even, primename
+)
+,g AS MATERIALIZED (
+    SELECT tnum, street_id, primename , COUNT(*) AS cnt
     FROM a
-    GROUP BY tnum, primename
-), 
-e AS MATERIALIZED (
-    SELECT DISTINCT b.tnum, COALESCE(b.primename,'{unnamed}') primename, o.lo AS odd_low, o.hi AS odd_hi, e.lo AS even_low, e.hi AS even_hi, g.cnt
+    GROUP BY tnum, street_id,primename
+)
+,e AS MATERIALIZED (
+    SELECT DISTINCT b.tnum,g.street_id, COALESCE(b.primename,'{unnamed}') primename, o.lo AS odd_low, o.hi AS odd_hi, e.lo AS even_low, e.hi AS even_hi, g.cnt
     FROM b
-    LEFT JOIN (SELECT * FROM b WHERE is_even) e ON (b.tnum = e.tnum AND b.primename = e.primename)
-    LEFT JOIN (SELECT * FROM b WHERE NOT is_even) o ON (b.tnum = o.tnum AND b.primename = o.primename)
-    LEFT JOIN g ON (b.tnum = g.tnum AND b.primename = g.primename)
-    LEFT JOIN a ON (b.tnum = a.tnum AND b.primename = a.primename)
-),
-excluded_primenames AS MATERIALIZED (
+    LEFT JOIN (SELECT * FROM b WHERE is_even) e ON (b.tnum = e.tnum AND b.primename = e.primename AND b.street_id = e.street_id)
+    LEFT JOIN (SELECT * FROM b WHERE NOT is_even) o ON (b.tnum = o.tnum AND b.primename = o.primename AND b.street_id = o.street_id)
+    LEFT JOIN g ON (b.tnum = g.tnum AND b.primename = g.primename AND b.street_id = g.street_id)
+) 
+,excluded_primenames AS MATERIALIZED (
   SELECT DISTINCT r.primename
   FROM fst_cong c
   JOIN fst_road r ON ST_Crosses(r.geom, c.geom)
@@ -342,17 +391,17 @@ excluded_primenames AS MATERIALIZED (
 ),
 one_road_tnum AS MATERIALIZED (
   SELECT r.primename,
-         MAX(CASE WHEN a.add_number % 2 = 0 THEN a.tnum END) AS even_tnum,
-         MAX(CASE WHEN a.add_number % 2 <> 0 THEN a.tnum END) AS odd_tnum
+         MAX(CASE WHEN a.add_number % 2 = 0 THEN r.tnum END) AS even_tnum,
+         MAX(CASE WHEN a.add_number % 2 <> 0 THEN r.tnum END) AS odd_tnum
   FROM fsv_addr2roadside rs
-  JOIN fst_road r ON rs.road_id = r.id
-  JOIN ntaddr a ON rs.addr_id = a.id
-  WHERE r.primename NOT IN (SELECT primename FROM excluded_primenames)
+  JOIN fsv_terrroad r ON rs.road_id = r.id
+  JOIN fst_addr a ON rs.addr_id = a.id
   GROUP BY r.primename
-  HAVING COUNT(DISTINCT CASE WHEN a.add_number % 2 = 0 THEN a.tnum END) <= 1
-     AND COUNT(DISTINCT CASE WHEN a.add_number % 2 <> 0 THEN a.tnum END) <= 1
-),
- f as MATERIALIZED (
+  HAVING COUNT(DISTINCT r.street_id) = 1  AND 
+  COUNT(DISTINCT CASE WHEN a.add_number % 2 = 0 THEN r.tnum END) <= 1
+     AND COUNT(DISTINCT CASE WHEN a.add_number % 2 <> 0 THEN r.tnum END) <= 1
+)
+, f as MATERIALIZED (
 SELECT *,
     CASE
         WHEN cnt > 4 AND odd_low <> odd_hi AND even_low <> even_hi THEN
@@ -374,7 +423,6 @@ select aa.add_number value from ntaddr aa where e.tnum = aa.tnum and e.primename
     WHEN even_low = even_hi and odd_low <> odd_hi THEN CONCAT(even_low,' & Odd ',odd_low, ' to ', odd_hi)
     WHEN even_low =even_hi and odd_low = odd_hi and odd_low < even_low THEN CONCAT(odd_low,', ',even_low)
     WHEN even_low =even_hi and odd_low = odd_hi and odd_low > even_low THEN CONCAT(even_low,', ',odd_low)
-        
     END AS remark, (SELECT string_agg(value::text, ',' ) AS joined_list
     FROM (
          select case when d.rsn is null or d.rsn = '' then aa.add_number::text
@@ -384,7 +432,7 @@ select aa.add_number value from ntaddr aa where e.tnum = aa.tnum and e.primename
      ) subquery ) dnc_list
 FROM e 
 ), z as materialized (
-   select tnum,primename,cnt,
+   select tnum,street_id,primename,cnt,
         case
         WHEN exists (select 1 from  one_road_tnum o 
             where  f.tnum = o.odd_tnum and f.primename = o.primename and  o.even_tnum = o.odd_tnum ) THEN
@@ -397,10 +445,10 @@ FROM e
         end 
         remark, dnc_list from f
 )
-select * from z;
+SELECT * FROM z;
 
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'tnroadi_unique_idx') THEN
-CREATE UNIQUE INDEX tnroadi_unique_idx ON tnroadi(tnum,primename);
+CREATE UNIQUE INDEX tnroadi_unique_idx ON tnroadi(primename,tnum);
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'fsv_addr2roadside_unique_idx') THEN
 CREATE UNIQUE INDEX fsv_addr2roadside_unique_idx ON fsv_addr2roadside (addr_id);
@@ -414,12 +462,18 @@ CREATE INDEX fsv_addr2roadside_road_id_idx ON fsv_addr2roadside (road_id);
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'tnbounds_idx_spatial') THEN
 CREATE INDEX tnbounds_idx_spatial ON tnbounds USING GIST (geom);
     END IF;
-  --  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'fsv_terrroad_unique_idx') THEN
--- CREATE UNIQUE INDEX fsv_terrroad_unique_idx ON fsv_terrroad(id);
-  --  END IF;
-  --  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'fsv_terrroad_primename_idx') THEN
--- CREATE INDEX fsv_terrroad_primename_idx ON fsv_terrroad(tnum,primename);
-   -- END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'fsv_terrroad_idx_spatial') THEN
+CREATE INDEX fsv_terrroad_idx_spatial ON fsv_terrroad USING GIST (geom);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'fsv_terrroad_unique_idx') THEN
+CREATE UNIQUE INDEX fsv_terrroad_unique_idx ON fsv_terrroad(id,cname);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'fsv_terrroad_primename_idx') THEN
+CREATE INDEX fsv_terrroad_primename_idx ON fsv_terrroad(tnum,primename);
+   END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'fsv_terrroad_street_id_idx') THEN
+CREATE INDEX fsv_terrroad_street_id_idx ON fsv_terrroad(street_id);
+   END IF;
 
 CREATE OR REPLACE VIEW ttown AS
 WITH ttown_agg AS (
@@ -467,22 +521,18 @@ DECLARE
   hash_value TEXT;
   property_value TEXT;
 BEGIN
-    drop materialized view IF EXISTS tnbounds,tnroadi cascade;
+    drop materialized view IF EXISTS tnbounds,tnroad, fsv_terrroad cascade;
     IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'tnroadi_unique_idx') THEN
        drop index tnroadi_unique_idx;
-       -- drop index fsv_terrroad_unique_idx;
-       -- drop index fsv_terrroad_primename_idx;
+       drop index fsv_terrroad_unique_idx;
+       drop index fsv_terrroad_primename_idx;
+       drop index fsv_terrroad_street_id_idx;
        drop index fsv_addr2roadside_unique_idx;
        drop index fsv_addr2roadside_road_id_idx;
        drop index tnbounds_idx_spatial;
        drop index tnbounds_unique_idx;
+       DROP INDEX fsv_terrroad_idx_spatial;
     END IF;
 END;
 $$ LANGUAGE plpgsql;
-DROP TABLE streets;
--- Create the streets table
-CREATE TABLE IF NOT EXISTS streets (
-    street_id SERIAL PRIMARY KEY,
-    geom GEOMETRY(MultiLineString, 4326)
-);
 
