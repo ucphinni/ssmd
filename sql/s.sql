@@ -92,34 +92,6 @@ UPDATE fst_dnc d
     WHERE d.zip = a.zip AND d.primename  = a.primename 
         AND d.add_number = a.add_number;
 
-
-create or replace view fsv_iw as
-WITH a as (
-select row_number() over() id,* from input_wkt where trim(wkt)<>''
-),lastrow as ( select max(id)+1 id from a)
-,cl as (
-select * from  a where regexp_match(wkt,'^[A-Z]$') is not null
-union all select lastrow.id,'END' from lastrow
-),cr as (
-select c1.wkt,min(c1.id)  startid,min(c2.id)-1 endid from cl c1, cl c2
-where c1.id < c2.id
-group by c1.wkt
-)
-select
-(cr.wkt || to_char(row_number() OVER (PARTITION BY cr.wkt), 'fm000')) tnum,
-CASE
-WHEN (a.wkt ~ '^\s*-?[0-9.]+\s'::text) THEN ("substring"(TRIM(BOTH FROM a.wkt), '^-?[0-9.]+'::text))::double precision
-ELSE NULL::double precision
-END AS rotation,
-CASE
-WHEN (a.wkt ~ '^\s*-?[0-9.]+\s+[0-9.]+\s'::text) THEN ((regexp_split_to_array(TRIM(BOTH FROM a.wkt), '\s+'::text))[2])::double precision
-ELSE NULL::double precision
-END AS scale,
-regexp_replace(
-  a.wkt, '^\s*-?\d*\.?\d*\s*-?\d*\.?\d*\s*(.*?)\s*$', '\1') wkt
-from a,cr where a.id between cr.startid and cr.endid
-and cr.startid <> a.id;
-
 CREATE OR REPLACE VIEW fsv_street AS 
 WITH merged_lines AS (
   SELECT primename, ST_Union(geom) AS geom
@@ -181,15 +153,121 @@ WITH merged_lines AS (
   WHERE st_contains(p.cgeom, p.geom) OR (ST_Intersects(p.cgeom, p.geom) AND NOT ST_Contains(p.cgeom, p.geom) AND 
     ST_Area(ST_Difference(p.geom, p.cgeom)) / NULLIF(ST_Area(p.geom), 0) < 0.1);
 
+CREATE OR REPLACE VIEW fsv_iw AS
+WITH cte_cong AS MATERIALIZED (
+WITH RECURSIVE intersection_areas AS (
+    SELECT
+        a.id AS id_a,
+        b.id AS id_b,
+        1 AS iteration,
+        ST_Intersection(a.geom, b.geom) AS intersection_geom
+    FROM
+        fst_cong AS a
+    JOIN
+        fst_cong AS b ON ST_Intersects(a.geom, b.geom) AND a.id < b.id
+    WHERE
+        ST_IsValid(a.geom) AND ST_IsValid(b.geom)
+    UNION ALL
+    SELECT
+        ia.id_a,
+        ia.id_b,
+        ia.iteration + 1,
+        ST_Intersection(ia.intersection_geom, c.geom) AS intersection_geom
+    FROM
+        intersection_areas AS ia
+    JOIN
+        fst_cong AS c ON ST_Intersects(ia.intersection_geom, c.geom) AND c.id <> ia.id_a AND c.id <> ia.id_b
+    WHERE
+        ST_IsValid(c.geom)
+),
+polygon_areas AS (
+    SELECT
+        id,
+        ST_Area(geom) AS area
+    FROM
+        fst_cong
+    WHERE
+        ST_IsValid(geom)
+)
+SELECT
+    p.id,
+    CASE
+        WHEN polygon_areas.area - COALESCE(SUM(ST_Area(intersection_areas.intersection_geom)), 0) > 0
+            THEN ST_Union(p.geom, ST_MakeValid(intersection_areas.intersection_geom))
+        ELSE p.geom
+    END AS geom, p.cardprefix
+FROM
+    fst_cong AS p
+LEFT JOIN
+    intersection_areas ON p.id = intersection_areas.id_a OR p.id = intersection_areas.id_b
+LEFT JOIN
+    polygon_areas ON p.id = polygon_areas.id
+GROUP BY
+    p.id, p.geom, polygon_areas.area,intersection_areas.intersection_geom
+), ca AS (
+SELECT
+    ca.id,
+    ca.cardprefix || to_char(ROW_NUMBER() OVER (PARTITION BY ca.cardprefix ORDER BY ca.id), 'fm000') tnum,
+    ca.rotate,
+    ca.scale,
+    ca.cardtype,
+    ca.geom,
+    st_convexhull(ca.geom) chgeom,
+    ca.locale,
+    ca.cname
+FROM
+(
+WITH borderline_polygons AS (
+SELECT a.id,a.geom,a.cardtype,a.locale,a.rotate,a.scale,c.cardprefix,c.id cname FROM fst_cardatlas a
+JOIN cte_cong c ON st_isvalid(a.geom) AND NOT st_contains(c.geom,a.geom) AND st_intersects(c.geom,a.geom)
+AND c.id =  (
+SELECT cc.id 
+FROM cte_cong cc
+ORDER BY st_area(st_intersection(st_buffer(cc.geom,0),a.geom)) DESC,cc.id
+LIMIT 1
+)
+), aa AS (
+SELECT a.* FROM borderline_polygons a WHERE  EXISTS (
+    SELECT 1 FROM borderline_polygons b WHERE b.id <> a.id AND st_intersects(a.geom,b.geom)  AND a.cname <> b.cname
+)),
+bb AS (
+    SELECT aa.id,ST_Difference(aa.geom,ST_Difference(ST_Union(bb.geom),ST_Buffer(c.geom,0))) geom
+    FROM aa, aa bb,cte_cong c
+    WHERE aa.cname <> bb.cname AND c.id = aa.cname
+    GROUP BY 1,aa.geom,c.geom
+)
+SELECT a.id,a.geom,a.cardtype,a.locale,a.rotate,a.scale,c.cardprefix, c.id cname FROM fst_cardatlas a
+JOIN cte_cong c ON st_contains(c.geom,a.geom)
+UNION ALL
+SELECT a.* FROM borderline_polygons a WHERE NOT EXISTS (
+    SELECT 1 FROM borderline_polygons b WHERE b.id <> a.id AND st_intersects(a.geom,b.geom) AND a.cname <> b.cname
+)
+UNION ALL
+SELECT aa.id,bb.geom,aa.cardtype,aa.locale,aa.rotate,aa.SCALE,aa.cardprefix,aa.cname
+FROM aa,bb,fsv_street s WHERE aa.id= bb.id AND aa.cname = s.cname AND st_intersects(aa.geom,s.geom)
+) ca
+WHERE ca.geom IS NOT null
+)
+SELECT DISTINCT ON (ca.tnum) ca.*,COALESCE (ca.locale,a.post_comm_list) post_comm_list
+FROM ca
+LEFT JOIN (
+    SELECT ca.id,string_agg(DISTINCT a.post_comm, ' & ' ORDER BY a.post_comm) AS post_comm_list
+    FROM ca
+    JOIN fst_addr a ON st_contains(ca.geom,a.geom)
+    GROUP BY 1
+) a ON a.id = ca.id;
+
+
+
 CREATE MATERIALIZED VIEW fsv_terrroad AS
 with a as (
 SELECT DISTINCT ON (r.id) r.*, iw.tnum,
-iw.rotation,
+iw.rotate,
 iw.SCALE, s.cname,s.id street_id
 FROM fst_road r
-join fsv_street s on st_intersects(s.geom,r.geom)  AND s.primename = r.primename
-JOIN fsv_iw iw ON (st_intersects(ST_GeomFromText(iw.wkt, 4326), r.geom))
-WHERE ((iw.rotation IS NULL) OR (iw.rotation >= ('-1000'::integer)::double precision))
+join fsv_street s on st_contains(s.geom,r.geom)  AND s.primename = r.primename
+JOIN fsv_iw iw ON (st_intersects(iw.geom, r.geom))
+WHERE iw.cardtype = 'S'
 ), b AS (
 select * from a
 union all
@@ -204,153 +282,15 @@ SELECT DISTINCT ON (b.id,b.cname) b.*,c.color FROM b
 LEFT JOIN colors c ON c.tnum = b.tnum;
 
 
+
 create or replace view ntaddr as
 select tr.tnum,ST_Azimuth(a.geom, ST_ClosestPoint(r.geom, a.geom)) rotate,
-a.* from fsv_terrroad tr, fsv_addr2roadside rs,fst_addr a ,fst_cong c, fst_road r
+a.*,tr.street_id,tr.cname from fsv_terrroad tr, fsv_addr2roadside rs,fst_addr a ,fst_cong c, fst_road r
 where c.active and st_Intersects(c.geom,a.geom) and rs.road_id = tr.id and a.id = rs.addr_id and a.place_type = 'Residence' and r.id = rs.road_id
-;
+AND tr.cname = c.id;
 
-CREATE MATERIALIZED VIEW tnbounds AS
-WITH aa AS (
-    SELECT
-        ntaddr.tnum,
-        CASE
-            WHEN count(*) = 1 THEN ST_Buffer(ST_Collect(geom), 1) -- Modify the buffer distance as needed
-            WHEN count(*) = 2 THEN ST_ConvexHull(ST_Buffer(ST_Collect(geom),1)) -- Modify the buffer distance as needed
-            ELSE st_concavehull(ST_Collect(geom), 0.3, false)
-        END AS geom,
-        count(*) AS cnt
-    FROM
-        ntaddr
-    GROUP BY
-        ntaddr.tnum
-    
-)
-SELECT
-    rotation AS rotation_angle,scale,
-    ST_MakePoint(
-        (ST_XMin(ST_Envelope(geom)) + ST_XMax(ST_Envelope(geom))) / 2,
-        (ST_YMin(ST_Envelope(geom)) + ST_YMax(ST_Envelope(geom))) / 2
-    ) AS midpoint,
-    aa.*
-FROM
-    aa
-JOIN (
-    SELECT DISTINCT ON (t.tnum) t.tnum, t.rotation, t.scale
-    FROM fsv_terrroad t
-) tr ON tr.tnum = aa.tnum;
 
-create or replace view fsv_bcomplex  as
-select a.tnum,ST_GeomFromText(a.wkt, 4326) geom,
-b.* from fsv_iw a, fst_bcomplex b
-where rotation <= -1000 and a.rotation::integer = b.id;
 
-create or replace view tnbounds2 as 
-WITH const AS (
-SELECT (131.649 / 58.149) AS aspect_ratio_viewport
-), mbr AS (
-SELECT tnbounds.tnum,cnt,rotation_angle user_angle,scale user_scale,
-st_orientedenvelope(tnbounds.geom) AS mbr_geom,
-st_envelope(st_orientedenvelope(tnbounds.geom)) AS mbre_geom,
-tnbounds.geom
-FROM tnbounds
-), mbr_pts_for_angle AS (
-SELECT st_xmin((mbr.mbre_geom)::box3d) AS xmin,
-st_xmax((mbr.mbre_geom)::box3d) AS xmax,
-st_ymin((mbr.mbre_geom)::box3d) AS ymin,
-st_ymax((mbr.mbre_geom)::box3d) AS ymax,
-user_angle,user_scale,cnt,
-st_pointn(st_exteriorring(mbr.mbr_geom), 1) AS point1,
-st_pointn(st_exteriorring(mbr.mbr_geom), 2) AS point2,
-st_setsrid(st_makepoint(st_x(st_pointn(st_exteriorring(mbr.mbr_geom), 1)), st_y(st_pointn(st_exteriorring(mbr.mbr_geom), 2))), st_srid(st_pointn(st_exteriorring(mbr.mbr_geom), 1))) AS point3,
-(st_ymax((mbr.mbre_geom)::box3d) - st_ymin((mbr.mbre_geom)::box3d)) AS mbre_h,
-(st_xmax((mbr.mbre_geom)::box3d) - st_xmin((mbr.mbre_geom)::box3d)) AS mbre_w,
-((st_xmax((mbr.mbre_geom)::box3d) - st_xmin((mbr.mbre_geom)::box3d)) / (st_ymax((mbr.mbre_geom)::box3d) - st_ymin((mbr.mbre_geom)::box3d))) AS mbre_ratio,
-mbr.tnum,
-mbr.mbr_geom,
-mbr.mbre_geom,
-mbr.geom,
-const.aspect_ratio_viewport
-FROM mbr,
-const
-), mbr_angle_aspect AS (
-SELECT (st_angle(mbr_pts_for_angle.point1, mbr_pts_for_angle.point2, mbr_pts_for_angle.point3) +
-CASE
-WHEN (((const.aspect_ratio_viewport >= 1.0) AND ((st_distance(mbr_pts_for_angle.point1, mbr_pts_for_angle.point2) / st_distance(mbr_pts_for_angle.point2, mbr_pts_for_angle.point3)) > (1.0)::double precision))) THEN (0)::double precision
-ELSE (pi() / (2.0)::double precision)
-END) AS ra,
-CASE
-WHEN (((const.aspect_ratio_viewport >=1.0) AND ((st_distance(mbr_pts_for_angle.point1, mbr_pts_for_angle.point2) / st_distance(mbr_pts_for_angle.point2, mbr_pts_for_angle.point3)) > (1.0)::double precision))) THEN (st_distance(mbr_pts_for_angle.point1, mbr_pts_for_angle.point2) / st_distance(mbr_pts_for_angle.point2, mbr_pts_for_angle.point3))
-ELSE (st_distance(mbr_pts_for_angle.point2, mbr_pts_for_angle.point3) / st_distance(mbr_pts_for_angle.point1, mbr_pts_for_angle.point2))
-END AS aspect_ratio,
-CASE
-WHEN (((const.aspect_ratio_viewport >=1.0) AND ((st_distance(mbr_pts_for_angle.point1, mbr_pts_for_angle.point2) / st_distance(mbr_pts_for_angle.point2, mbr_pts_for_angle.point3)) > (1.0)::double precision))) THEN st_distance(mbr_pts_for_angle.point1, mbr_pts_for_angle.point2)
-ELSE st_distance(mbr_pts_for_angle.point2, mbr_pts_for_angle.point3)
-END AS mbrer_w,
-CASE
-WHEN (((const.aspect_ratio_viewport >=1.0) AND ((st_distance(mbr_pts_for_angle.point1, mbr_pts_for_angle.point2) / st_distance(mbr_pts_for_angle.point2, mbr_pts_for_angle.point3)) > (1.0)::double precision))) THEN st_distance(mbr_pts_for_angle.point2, mbr_pts_for_angle.point3)
-ELSE st_distance(mbr_pts_for_angle.point1, mbr_pts_for_angle.point2)
-END AS mbrer_h,user_angle,user_scale,cnt,
-mbr_pts_for_angle.xmin,
-mbr_pts_for_angle.xmax,
-mbr_pts_for_angle.ymin,
-mbr_pts_for_angle.ymax,
-mbr_pts_for_angle.point1,
-mbr_pts_for_angle.point2,
-mbr_pts_for_angle.point3,
-mbr_pts_for_angle.mbre_h,
-mbr_pts_for_angle.mbre_w,
-mbr_pts_for_angle.mbre_ratio,
-mbr_pts_for_angle.tnum,
-mbr_pts_for_angle.mbr_geom,
-mbr_pts_for_angle.mbre_geom,
-mbr_pts_for_angle.geom,
-mbr_pts_for_angle.aspect_ratio_viewport
-FROM mbr_pts_for_angle,
-const
-), raa AS (
-SELECT mbr_angle_aspect.user_angle,mbr_angle_aspect.user_scale,mbr_angle_aspect.cnt,(- degrees((mbr_angle_aspect.ra - (floor((mbr_angle_aspect.ra / (pi() / (2.0)::double precision))) * (pi() / (2.0)::double precision))))) AS rotation_angle,
-(degrees((mbr_angle_aspect.ra - (floor((mbr_angle_aspect.ra / (pi() / (2.0)::double precision))) * (pi() / (2.0)::double precision)))) - degrees(atan((const.aspect_ratio_viewport)::double precision))) AS vp_angle,
-mbr_angle_aspect.ra,
-mbr_angle_aspect.aspect_ratio,
-mbr_angle_aspect.mbrer_w,
-mbr_angle_aspect.mbrer_h,
-mbr_angle_aspect.xmin,
-mbr_angle_aspect.xmax,
-mbr_angle_aspect.ymin,
-mbr_angle_aspect.ymax,
-mbr_angle_aspect.point1,
-mbr_angle_aspect.point2,
-mbr_angle_aspect.point3,
-mbr_angle_aspect.mbre_h,
-mbr_angle_aspect.mbre_w,
-mbr_angle_aspect.mbre_ratio,
-mbr_angle_aspect.tnum,
-mbr_angle_aspect.mbr_geom,
-mbr_angle_aspect.mbre_geom,
-mbr_angle_aspect.geom,
-mbr_angle_aspect.aspect_ratio_viewport
-FROM mbr_angle_aspect,
-const
-)
-SELECT raa.rotation_angle,
-raa.vp_angle,
-raa.ra,
-raa.cnt,
-raa.user_angle,
-raa.user_scale,
-raa.aspect_ratio,
-raa.xmin,
-raa.xmax,
-raa.ymin,
-raa.ymax,
-raa.mbre_ratio,
-raa.tnum,
-raa.mbr_geom,
-raa.mbre_geom,
-raa.geom,
-raa.aspect_ratio_viewport
-FROM raa;
 
 create or replace view  fsv_ua as 
 SELECT a.* FROM fst_addr a, fst_cong c WHERE (st_intersects(c.geom, a.geom) AND ((a.place_type)::text = 'Residence'::text) AND c.active AND (NOT (EXISTS ( SELECT 1 FROM fsv_terrroad tr, fsv_addr2roadside rs WHERE ((tr.id = rs.road_id) AND (a.id = rs.addr_id))))));
@@ -415,7 +355,7 @@ SELECT *,
         CONCAT ('Only ',( 
 SELECT string_agg(value::text, ', ' ORDER BY value) AS joined_list
 FROM (
-select aa.add_number value from ntaddr aa where e.tnum = aa.tnum and e.primename = aa.primename
+select aa.add_number value from ntaddr aa where e.tnum = aa.tnum and e.primename = aa.primename AND aa.street_id = e.street_id
 ) distinct_values
         )
         )
@@ -447,20 +387,14 @@ FROM e
 )
 SELECT * FROM z;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'tnroadi_unique_idx') THEN
-CREATE UNIQUE INDEX tnroadi_unique_idx ON tnroadi(primename,tnum);
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'tnroadi_idx') THEN
+CREATE INDEX tnroadi_idx ON tnroadi(primename,tnum);
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'fsv_addr2roadside_unique_idx') THEN
 CREATE UNIQUE INDEX fsv_addr2roadside_unique_idx ON fsv_addr2roadside (addr_id);
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'tnbounds_unique_idx') THEN
-CREATE UNIQUE INDEX tnbounds_unique_idx ON tnbounds(tnum);
-    END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'fsv_addr2roadside_road_id_idx') THEN
 CREATE INDEX fsv_addr2roadside_road_id_idx ON fsv_addr2roadside (road_id);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'tnbounds_idx_spatial') THEN
-CREATE INDEX tnbounds_idx_spatial ON tnbounds USING GIST (geom);
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'fsv_terrroad_idx_spatial') THEN
 CREATE INDEX fsv_terrroad_idx_spatial ON fsv_terrroad USING GIST (geom);
@@ -475,19 +409,6 @@ CREATE INDEX fsv_terrroad_primename_idx ON fsv_terrroad(tnum,primename);
 CREATE INDEX fsv_terrroad_street_id_idx ON fsv_terrroad(street_id);
    END IF;
 
-CREATE OR REPLACE VIEW ttown AS
-WITH ttown_agg AS (
-    SELECT tnum, string_agg(post_comm, ' & ' ORDER BY post_comm) AS post_comm_list
-    FROM (
-        SELECT DISTINCT ON (tnum, post_comm) tnum, post_comm
-        FROM ntaddr
-        ORDER BY tnum, post_comm
-    ) subquery
-    GROUP BY tnum
-)
-SELECT *
-FROM ttown_agg;
-
 create or replace view farcardroads as
 with sq as  (SELECT  a.tnum, r.primename, 
          ST_Transform(ST_Envelope(ST_Collect(r.geom)),4326)
@@ -495,8 +416,8 @@ with sq as  (SELECT  a.tnum, r.primename,
   FROM fst_road r
   JOIN (
     SELECT a.tnum, rs.road_id, ROW_NUMBER() OVER (PARTITION BY rs.road_id) AS rn
-    FROM ntaddr a,tnbounds2 t ,fsv_addr2roadside rs
-    where a.tnum = t.tnum and t.user_scale > 8000
+    FROM ntaddr a,fsv_iw t ,fsv_addr2roadside rs
+    where a.tnum = t.tnum and t.scale > 8000
     and rs.addr_id = a.id and a.tnum = t.tnum
   ) a ON r.id = a.road_id
   WHERE a.rn = 1 
@@ -505,7 +426,7 @@ with sq as  (SELECT  a.tnum, r.primename,
   SELECT  a.tnum,  r.id
   FROM fst_road r, (
     SELECT a.tnum, rs.road_id, ROW_NUMBER() OVER (PARTITION BY rs.road_id) AS rn
-    FROM ntaddr a,tnbounds2 t ,fsv_addr2roadside rs
+    FROM ntaddr a,fsv_iw t ,fsv_addr2roadside rs
     where a.tnum = t.tnum 
     and rs.addr_id = a.id and a.tnum = t.tnum
   ) a,sq
@@ -521,16 +442,14 @@ DECLARE
   hash_value TEXT;
   property_value TEXT;
 BEGIN
-    drop materialized view IF EXISTS tnbounds,tnroad, fsv_terrroad cascade;
-    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'tnroadi_unique_idx') THEN
-       drop index tnroadi_unique_idx;
+    drop materialized view IF EXISTS tnroad, fsv_terrroad cascade;
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'tnroadi_idx') THEN
+       drop index tnroadi_idx;
        drop index fsv_terrroad_unique_idx;
        drop index fsv_terrroad_primename_idx;
        drop index fsv_terrroad_street_id_idx;
        drop index fsv_addr2roadside_unique_idx;
        drop index fsv_addr2roadside_road_id_idx;
-       drop index tnbounds_idx_spatial;
-       drop index tnbounds_unique_idx;
        DROP INDEX fsv_terrroad_idx_spatial;
     END IF;
 END;
