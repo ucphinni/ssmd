@@ -721,10 +721,9 @@ select id,'Heron Lane',true   from fst_road where primename = 'Heron Court' and 
 union all
 select id,primename,true   from fst_road where primename in
 ( 'Creek Road','Rancocas Avenue', 'Delaware Avenue','John F Kennedy Way');
+-- drop MATERIALIZED VIEW fsv_addr2roadside cascade;
 
-
-
-  CREATE MATERIALIZED VIEW fsv_addr2roadside AS
+CREATE MATERIALIZED VIEW fsv_addr2roadside AS
   WITH all_addresses AS (
   SELECT DISTINCT a.id AS addr_id, a.primename, a.geom, a.add_number
   FROM fst_addr a
@@ -739,18 +738,35 @@ select id,primename,true   from fst_road where primename in
   ), -- here.
   closest_road_aliases AS (
   SELECT a.addr_id, ra.road_id, ROW_NUMBER()
-  OVER (PARTITION BY a.addr_id ORDER BY a.geom <-> r.geom) AS sequence_number
+  OVER (PARTITION BY a.addr_id ORDER BY a.geom <-> r.geom) AS sequence_number,
+  r.fromaddr_l,
+  r.toaddr_l,
+  r.fromaddr_r,
+  r.toaddr_r
   FROM all_addresses a
   CROSS JOIN road_aliases ra
   JOIN fst_road r ON r.id = ra.road_id AND ra.alias_primename = a.primename
   )
-  SELECT a.addr_id, c.road_id
+  SELECT DISTINCT ON (a.addr_id) a.addr_id, c.road_id
   FROM all_addresses a
   LEFT JOIN (
-  SELECT addr_id, road_id
+  SELECT addr_id, road_id, sequence_number,fromaddr_l,fromaddr_r,toaddr_l,toaddr_r
   FROM closest_road_aliases
-  WHERE sequence_number = 1
-  ) c ON c.addr_id = a.addr_id;
+  ORDER BY sequence_number desc
+ ) c ON c.addr_id = a.addr_id
+ JOIN fst_road r ON r.id = c.road_id and CASE WHEN (c.sequence_number =2 OR c.sequence_number = 3) THEN 
+   ST_DWithin(a.geom,r.geom,0.0001)  AND (
+  (COALESCE(c.fromaddr_l,0) <> 0  AND mod(c.fromaddr_l,2) = mod(c.toaddr_l,2) AND
+  mod(c.fromaddr_l,2) = mod(a.add_number,2) AND 
+  a.add_number BETWEEN SYMMETRIC c.fromaddr_l AND c.toaddr_l) OR 
+  (COALESCE(c.fromaddr_r,0) <> 0  AND mod(c.fromaddr_r,2) = mod(c.toaddr_r,2) AND
+  mod(c.fromaddr_r,2) = mod(a.add_number,2) AND 
+  a.add_number BETWEEN SYMMETRIC c.fromaddr_r AND c.toaddr_r ))
+  ELSE
+    sequence_number = 1
+  END;
+
+ 
 
 create  materialized view fsv_prrr2 AS
 WITH filtered_fst_road AS (

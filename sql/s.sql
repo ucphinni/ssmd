@@ -257,7 +257,16 @@ LEFT JOIN (
     GROUP BY 1
 ) a ON a.id = ca.id;
 
-
+CREATE OR REPLACE VIEW fsv_cardatlas_cnt AS
+WITH aa AS MATERIALIZED (
+    SELECT max(cc.id) cid ,rr.id road_id FROM fst_cardatlas cc, fst_road rr WHERE st_intersects(cc.geom,rr.geom) GROUP BY rr.id
+)
+SELECT c.id, COUNT(distinct rs.addr_id) AS count
+FROM fst_cardatlas c
+JOIN aa ON aa.cid = c.id
+JOIN fsv_addr2roadside rs ON rs.road_id = aa.road_id
+JOIN fst_addr a ON rs.addr_id = a.id AND a.place_type = 'Residence'
+GROUP BY c.id;
 
 CREATE MATERIALIZED VIEW fsv_terrroad AS
 with a as (
@@ -268,6 +277,7 @@ FROM fst_road r
 join fsv_street s on st_contains(s.geom,r.geom)  AND s.primename = r.primename
 JOIN fsv_iw iw ON (st_intersects(iw.geom, r.geom))
 WHERE iw.cardtype = 'S'
+ORDER BY r.id,iw.id desc
 ), b AS (
 select * from a
 union all
@@ -408,6 +418,9 @@ CREATE INDEX fsv_terrroad_primename_idx ON fsv_terrroad(tnum,primename);
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'fsv_terrroad_street_id_idx') THEN
 CREATE INDEX fsv_terrroad_street_id_idx ON fsv_terrroad(street_id);
    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_fst_road_primename') THEN
+CREATE INDEX idx_fst_road_primename ON fst_road (primename);
+   END IF;
 
 create or replace view farcardroads as
 with sq as  (SELECT  a.tnum, r.primename, 
@@ -451,6 +464,7 @@ BEGIN
        drop index fsv_addr2roadside_unique_idx;
        drop index fsv_addr2roadside_road_id_idx;
        DROP INDEX fsv_terrroad_idx_spatial;
+       DROP INDEX idx_fst_road_primename;
     END IF;
 END;
 $$ LANGUAGE plpgsql;
