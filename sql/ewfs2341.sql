@@ -7,6 +7,24 @@ CREATE TABLE IF NOT EXISTS fst_cong (
     active BOOLEAN NOT NULL DEFAULT false
 );
 
+CREATE TABLE IF NOT EXISTS fst_cardatlas (
+    id int4 NOT NULL DEFAULT nextval('fst_cardatlas2_id_seq'::regclass),
+    geom public.geometry(multipolygon, 4326) NULL,
+    cardtype bpchar(1) NULL,
+    locale varchar(50) NULL,
+    rotate numeric NULL,
+    "scale" int2 NULL,
+    notes text NULL,
+    CONSTRAINT fst_cardatlas2_pkey PRIMARY KEY (id)
+);
+CREATE INDEX sidx_fst_cardatlas_geom ON public.fst_cardatlas USING gist (geom);
+
+CREATE TABLE IF NOT EXISTS fst_circularaddr (
+    id SERIAL PRIMARY KEY,
+    geom GEOMETRY(Polygon, 4326)
+);
+CREATE INDEX fst_circularaddr_sidx ON fst_circularaddr USING GIST (geom);
+
 insert into fst_cong(id,name,geom)
 SELECT 'NWNJ','North Willingboro', ST_GeomFromWKB(decode('
 AQMAAAABAAAAnAEAAFcaD35juVLAoNk1MkP9Q0AVdX5v1rtSwMMCtvmbAURALztnu9i7UsAZRJzk
@@ -514,14 +532,14 @@ uVLAvC2hp8j9Q0DytMpqM7lSwCloXOaf/UNAPnjTmU65UsC4Y1T/Zv1DQDVQ3GVbuVLAAARUEVH9
 Q0BXGg9+Y7lSwKDZNTJD/UNAEUfjv2O5UsAMF2bBQv1DQA==
 ','base64'));
 
-DROP TABLE fst_dnc;
+DROP TABLE fst_dnc CASCADE;
 CREATE TABLE IF NOT EXISTS fst_dnc (
   id SERIAL PRIMARY KEY,
   tmpstmp TIMESTAMP NOT NULL DEFAULT NOW(),
   lang CHAR(2) DEFAULT 'en',
   zip CHAR(5) NOT NULL,
   primename VARCHAR(30) NOT NULL,
-  add_number INTEGER NOT NULL,
+  add_number CHAR(5) NOT NULL,
   addr_id INTEGER REFERENCES fst_addr(id),
   rsn TEXT,
   remark TEXT
@@ -529,316 +547,195 @@ CREATE TABLE IF NOT EXISTS fst_dnc (
 
 
 
-CREATE TABLE IF NOT EXISTS fst_work (
-  id SERIAL PRIMARY KEY,
-  tnum VARCHAR(4),
-  hnum_start INTEGER,
-  hnum_end INTEGER,
-  addr_primename TEXT,
-  FOREIGN KEY (tnum) REFERENCES fst_card(name)  
-);
-
-create OR REPLACE view fsv_addr_dc as
-WITH w_addr_dc AS (
-  SELECT c.name AS card_id, a.* FROM fst_addr a
-  INNER JOIN fst_card c ON ST_Contains(c.geom,a.geom)
-  WHERE NOT EXISTS (
-    SELECT 1 FROM fst_dnc d
-    WHERE d.addr_id = a.id
-  )
-), matched_work AS (
-  SELECT d.* FROM w_addr_dc d
-  LEFT JOIN fst_card c ON ST_Contains(c.geom, d.geom)
-  JOIN fst_work w ON (
-    COALESCE(c.name = w.tnum, 
-            1 = (SELECT COUNT(DISTINCT q.card_id) 
-                 FROM w_addr_dc q INNER JOIN fst_card c2 ON ST_Contains(c2.geom, q.geom)
-                 WHERE q.primename = d.primename AND c2.name = w.tnum))
-    AND COALESCE(d.primename = w.addr_primename, true) 
-    AND d.add_number BETWEEN COALESCE(w.hnum_start, d.add_number) AND COALESCE(w.hnum_end, d.add_number)
-  )
+CREATE OR REPLACE VIEW fsv_roadaddralias AS
+WITH fsv_road AS MATERIALIZED (
+    SELECT r.* FROM fst_road r
+    JOIN (SELECT st_union(geom) geom FROM fst_cong) c ON st_intersects(c.geom,r.geom)
 )
-SELECT * FROM matched_work
-UNION ALL
-SELECT * FROM w_addr_dc
-WHERE NOT EXISTS (
-  SELECT 1  FROM matched_work
-  );
-
-
-
-CREATE OR REPLACE VIEW fsv_roadaddralias as
-select id road_id,'J F Kennedy Way' primename,true get_closest from fst_road where primename in ( 'South John F Kennedy Way') and postcode_l = '08046'
-union all select id,'Cottage Street',false from  fst_road where  
+select id road_id,'J F Kennedy Way' primename,true get_closest from fsv_road where primename in ( 'South John F Kennedy Way') and postcode_l = '08046'
+union all select id,'Cottage Street',false from  fsv_road where  
                   st_intersects(ST_GeomFromText('
 			LineString (-74.82889171199119005 39.98321892938669464, -74.82874307480464893 39.983419416754586)
 				  ',4326),geom) 
-union all select id,'Rancocas Mount Holly Road',true from  fst_road where  
+union all select id,'Rancocas Mount Holly Road',true from  fsv_road where  
                   st_intersects(ST_GeomFromText('
 LineString (-74.83869781364271034 40.00827593224035184, -74.83554898694221436 40.00922652143295721, -74.83451918198355202 40.00730553910623399, -74.8329348666625549 40.00845416771396401, -74.83140996316608096 40.00631534203060369, -74.82944937295634702 40.00736495093077139, -74.82818192069953511 40.0052657331304431, -74.82665701720307538 40.00659259721178529, -74.82659760537853799 40.0038794572245564, -74.82517172158962637 40.00595887108337934, -74.82529054523870116 40.00382004540001901, -74.8226764249590417 40.00514690948136121, -74.81678475235905523 40.00312690744708277, -74.81362602368780301 40.00368141780943176, -74.81291308179335431 40.0023941616111145, -74.81140798223839283 40.00265161285078364, -74.81108121720343718 40.00098808176372245, -74.80902160728612671 40.00045337534288592, -74.80860572451436497 39.99904729549549387, -74.80646689883100464 39.9990869033785188)
 ',4326),geom) 
 union all
-select id road_id,'J F Kennedy Way' primename,true get_closest from fst_road where primename in ( 'South John F Kennedy Way') and postcode_l = '08046'
+select id road_id,'J F Kennedy Way' primename,true get_closest from fsv_road where primename in ( 'South John F Kennedy Way') and postcode_l = '08046'
 union all
-select id road_id,'Washington Street' primename,true get_closest from fst_road where primename = 'Washington Street Extension'
+select id road_id,'Washington Street' primename,true get_closest from fsv_road where primename = 'Washington Street Extension'
 union all
-select id road_id,'East Ct' primename,true get_closest from fst_road where primename = 'E Court'
+select id road_id,'East Ct' primename,true get_closest from fsv_road where primename = 'E Court'
 union all
-select id road_id,'Musket Lane' primename,true get_closest from fst_road where primename = 'Holly Road' and postcode_l = '08054'
+select id road_id,'Musket Lane' primename,true get_closest from fsv_road where primename = 'Holly Road' and postcode_l = '08054'
 union all
-select id road_id,'Heather Wood Lane' primename,true get_closest from fst_road where primename = 'Heatherwood Lane' and postcode_l = '08054'
+select id road_id,'Heather Wood Lane' primename,true get_closest from fsv_road where primename = 'Heatherwood Lane' and postcode_l = '08054'
 union all
-select id road_id,'Rancocas Mount Holly Road' primename,true get_closest from fst_road where primename = 'Rancocas Road' and postcode_l = '08060'
+select id road_id,'Rancocas Mount Holly Road' primename,true get_closest from fsv_road where primename = 'Rancocas Road' and postcode_l = '08060'
 union all
-select id road_id,'Burlington Mt Holly Road' primename,true get_closest from fst_road where primename = 'Burlington Mount Holly Road' and postcode_l = '08060'
+select id road_id,'Burlington Mt Holly Road' primename,true get_closest from fsv_road where primename = 'Burlington Mount Holly Road' and postcode_l = '08060'
 union all
-select id road_id,'Bradfort Court' primename,true get_closest from fst_road where primename = 'Bradford Court' and postcode_l = '08060'
+select id road_id,'Bradfort Court' primename,true get_closest from fsv_road where primename = 'Bradford Court' and postcode_l = '08060'
 union all
-select id,'John F Kennedy Way' primename,true from fst_road where primename in ( 'South John F Kennedy Way') and postcode_l = '08046'
+select id,'John F Kennedy Way' primename,true from fsv_road where primename in ( 'South John F Kennedy Way') and postcode_l = '08046'
 union all
-select id,'2nd Street',true from fst_road where primename = 'Second Street'
+select id,'2nd Street',true from fsv_road where primename = 'Second Street'
 union all
-select id,'Roslyn Drive',false from  fst_road where  
+select id,'Roslyn Drive',false from  fsv_road where  
                   st_intersects(ST_GeomFromText('
 				  LineString (-74.93906785042418051 40.01687130276751247, -74.938005950077752 40.01724371642758626)
 				  ',4326),geom) 
 union all
-select id,'Centerton Road',false from  fst_road where  
+select id,'Centerton Road',false from  fsv_road where  
                   st_intersects(ST_GeomFromText('
 LineString (-74.87878749408345413 39.99418043606383577, -74.87840897784339234 39.9939216582959034, -74.87820020943833299 39.99436199131885417, -74.87655283139307016 39.99459236100299364)
 ',4326),geom) 
 union all
-select id,'Hinkle Way',false from  fst_road where  
+select id,'Hinkle Way',false from  fsv_road where  
                   st_intersects(ST_GeomFromText('
 LineString (-74.93949302232131515 40.05664683349909438, -74.93913026031735569 40.0565779546375822, -74.93912566839324541 40.05625192802642687)
 				  
 				  ',4326),geom) 
 union all
-select id,'St Mihiel Drive',true from  fst_road where  
+select id,'St Mihiel Drive',true from  fsv_road where  
                   st_intersects(ST_GeomFromText('
 LineString (-74.93949302232131515 40.05664683349909438, -74.93913026031735569 40.0565779546375822, -74.93912566839324541 40.05625192802642687)
 				  
 				  ',4326),geom) 
 union all
-select id,'Delaware',false from  fst_road where  
+select id,'Delaware',false from  fsv_road where  
                   st_intersects(ST_GeomFromText('
 LineString (-74.9618990773823981 40.04852697174640497, -74.9618990773823981 40.04852697174640497, -74.9615684588471396 40.04813206627373035)				  
 				  ',4326),geom) 
 union all
-select id,'Snowberry',false from  fst_road where  
+select id,'Snowberry',false from  fsv_road where  
                   st_intersects(ST_GeomFromText('
 LineString (-74.92680864322433365 40.00849187374534921, -74.9269739524919629 40.00822095022339653, -74.9272632437103141 40.00812911174138264, -74.92741018528154484 40.00828982908490872)
 				  ',4326),geom) 
 union all
-select id,'Rockress Place',false from  fst_road where  
+select id,'Rockress Place',false from  fsv_road where  
                   st_intersects(ST_GeomFromText('
 LineString (-74.92868724549617809 40.0108453190152602, -74.9284438735188445 40.01054684394870975, -74.92781018799293236 40.01067082589943169, -74.92749334522997628 40.01025755273035855, -74.92721782978392753 40.0104687812389912)
 				  ',4326),geom) 
 union all
-select id,'Dorchester Road',false from  fst_road where  
+select id,'Dorchester Road',false from  fsv_road where  
                   st_intersects(ST_GeomFromText('
 LineString (-74.93221644858340369 40.01459768051473276, -74.932257775900311 40.01502472945610833, -74.93182154311072907 40.01529565297805391, -74.93234043053412563 40.01564923113381411)
 				  ',4326),geom) 
 union all
-select id,'Primrose Place',false from fst_road where primename = 'Primrose Lane' and postcode_l = '08075'
+select id,'Primrose Place',false from fsv_road where primename = 'Primrose Lane' and postcode_l = '08075'
 union all
-select id,'Fairview Street',false from fst_road where primename = 'South Fairview Street' and postcode_l = '08075'
+select id,'Fairview Street',false from fsv_road where primename = 'South Fairview Street' and postcode_l = '08075'
 union all
-select id,'Fairview Street',false from fst_road where primename = 'South Fairview Street' and postcode_l = '08075'
+select id,'Fairview Street',false from fsv_road where primename = 'South Fairview Street' and postcode_l = '08075'
 union all
-select id,'Lichtenthal Avenue',false from fst_road where primename = 'Lichtenthal Street' and postcode_l = '08075'
+select id,'Lichtenthal Avenue',false from fsv_road where primename = 'Lichtenthal Street' and postcode_l = '08075'
 union all
-select id, 'East Lane',false from fst_road where primename = 'E Lane' and
+select id, 'East Lane',false from fsv_road where primename = 'E Lane' and
    ST_Intersects(ST_GeomFromText('LineString (-74.87471727345477746 40.02428031319017521, -74.87458691743211148 40.02596045748236975, -74.87160321291321452 40.02550421140302461)',4326),geom)
-union all select id, 'East Court' ,false from fst_road where primename = 'E Court' and
+union all select id, 'East Court' ,false from fsv_road where primename = 'E Court' and
    ST_Intersects(ST_GeomFromText('LineString (-74.87426102737543943 40.02479449527959332, -74.87394237932001317 40.02551145340427752, -74.8736020052608211 40.02480173728085333)',4326),geom)
 union all
-select id,'Snowberry',false from  fst_road where  
+select id,'Snowberry',false from  fsv_road where  
                   ST_Contains(ST_GeomFromText('
 Polygon ((-74.92701153416388138 40.00823449933177756, 
                    -74.92701755755601312 40.00838800536743634, 
 				   -74.92680900782880826 40.0083016692383211, 
 				   -74.92701153416388138 40.00823449933177756))',4326),geom) 
 union all
-select id,'Tieman Circle',false from  fst_road where  
+select id,'Tieman Circle',false from  fsv_road where  
                   st_intersects(ST_GeomFromText('
 LineString (-74.93937428861106298 40.05653956216056599, -74.93798100483731162 40.05574268115853442, -74.93902593807970902 40.05505455191405417)
 				  ',4326),geom) 
 union all
-select id,'Rosebay Court',false from  fst_road where  
+select id,'Rosebay Court',false from  fsv_road where  
                   st_intersects(ST_GeomFromText('
 Polygon ((-74.92518817974116985 40.01020099850048695, -74.9243942945777377 40.00970486903194967, -74.92477477744245107 40.00917106472587648, -74.92518817974116985 40.01020099850048695))
 				  ',4326),geom) 
 union all
-select id, 'St Mihiel Drive', true from fst_road where
+select id, 'St Mihiel Drive', true from fsv_road where
                   st_intersects(ST_GeomFromText('
 LineString (-74.96543465352327473 40.03633525429195572, -74.96544645422194719 40.03606181910604533, -74.96577794106919157 40.03610069958272533, -74.96632344226017608 40.03567062207468297, -74.96678733410762163 40.03562396910079713)
 ',4326),geom) 
 union all
-select id,'Saint Michel Drive',false from  fst_road where  
+select id,'Saint Michel Drive',false from  fsv_road where  
                   st_intersects(ST_GeomFromText('
 LineString (-74.93937428861106298 40.05653956216056599, -74.93798100483731162 40.05574268115853442, -74.93902593807970902 40.05505455191405417)
 				  ',4326),geom)
-union all select id, 'North Pl', false from fst_road where
+union all select id, 'North Pl', false from fsv_road where
       st_intersects(ST_GeomFromText('
       LineString (-74.85767322349065012 40.03840945764738279, -74.85738354344026391 40.03768163652080858, -74.85807877556116807 40.03737747246790946)',4326),geom)
-union all select id, 'Mount Laurel Road', false from fst_road where
+union all select id, 'Mount Laurel Road', false from fsv_road where
       st_intersects(ST_GeomFromText('
 LineString (-74.84425741615750383 39.97511074563919209, -74.84335940800133358 39.97719644200191169, -74.8420123957670711 39.97718195799939878, -74.84140406766127285 39.97871726226640021, -74.83957908334389231 39.97919161334889537, -74.83962253535145237 39.9805820775907037, -74.838203103104604 39.98053862558315075, -74.83808723108445804 39.98124834170657493, -74.83752235498621985 39.981364213726728)',4326),geom)
-union all select id, 'Mt Laurel Road', false from fst_road where
+union all select id, 'Mt Laurel Road', false from fsv_road where
       st_intersects(ST_GeomFromText('
 LineString (-74.84425741615750383 39.97511074563919209, -74.84335940800133358 39.97719644200191169, -74.8420123957670711 39.97718195799939878, -74.84140406766127285 39.97871726226640021, -74.83957908334389231 39.97919161334889537, -74.83962253535145237 39.9805820775907037, -74.838203103104604 39.98053862558315075, -74.83808723108445804 39.98124834170657493, -74.83752235498621985 39.981364213726728)',4326),geom)
-union all select id, 'Mt Holly Road', true from fst_road where
+union all select id, 'Mt Holly Road', true from fsv_road where
       st_intersects(ST_GeomFromText('
       LineString (-74.83875102028076753 40.04870507815925862, -74.83838340816878087 40.04864277102163328, -74.83818402532838832 40.04820039034449763, -74.83761703037599489 40.0479698539352853, -74.83723072612272631 40.04719724542874104, -74.83684442186945773 40.04705393901220134)
 ',4326),geom)
-union all select id, 'Cooper Springs Ptwy',false from fst_road where primename = 'Cooper Springs Pathway'
+union all select id, 'Cooper Springs Ptwy',false from fsv_road where primename = 'Cooper Springs Pathway'
 union all
-select id,'Compass Crossing',true from  fst_road where  
+select id,'Compass Crossing',true from  fsv_road where  
                   primename = 'Compass Circle' and postcode_l = '08054'
 union all
-select id,'Bev-Rancocas Road',true from fst_road where primename = 'Beverly Road' AND postcode_l= '08046'
+select id,'Bev-Rancocas Road',true from fsv_road where primename = 'Beverly Road' AND postcode_l= '08046'
 union all
-select id,'Buoy Drive',false from fst_road where primename = 'Bouy Drive' and postcode_l = '08054'
+select id,'Buoy Drive',false from fsv_road where primename = 'Bouy Drive' and postcode_l = '08054'
 union all
-select id,'Marwood Turn',true from fst_road where primename = 'Marwood Turn' and postcode_l = '08046'
+select id,'Marwood Turn',true from fsv_road where primename = 'Marwood Turn' and postcode_l = '08046'
 union all
-select id,'Bridgeboro Street',true from fst_road where primename = 'Bridgeboro Street' and postcode_l = '08075'
+select id,'Bridgeboro Street',true from fsv_road where primename = 'Bridgeboro Street' and postcode_l = '08075'
 union all
-select id,'South Bridgeboro Street',false from fst_road where primename = 'Bridgeboro Street' and postcode_l = '08075'
+select id,'South Bridgeboro Street',false from fsv_road where primename = 'Bridgeboro Street' and postcode_l = '08075'
 union all
-select id,'Orchard Avenue',true from fst_road where primename = 'Orchard Street' and postcode_l = '08075'
+select id,'Orchard Avenue',true from fsv_road where primename = 'Orchard Street' and postcode_l = '08075'
 union all
-select id,'Pennsylvania Avenue',true from fst_road where primename = 'Pennsylvania Avenue' and postcode_l = '08075'
+select id,'Pennsylvania Avenue',true from fsv_road where primename = 'Pennsylvania Avenue' and postcode_l = '08075'
 union all
-select id,'Muirfield Court',true from fst_road where primename = 'Muir Field Court' 
+select id,'Muirfield Court',true from fsv_road where primename = 'Muir Field Court' 
 union all
-select id,'Burlington Mt Holly Road',true from fst_road where primename =  'Burlington Mount Holly Road'
+select id,'Burlington Mt Holly Road',true from fsv_road where primename =  'Burlington Mount Holly Road'
 union all
-select id,'Burlington Mt Holly Road',true from fst_road where primename =  'Burlington Mount Holly Road'
+select id,'Burlington Mt Holly Road',true from fsv_road where primename =  'Burlington Mount Holly Road'
 union all
-select id,'Heron Lane',true   from fst_road where primename = 'Heron Court' and postcode_l = '08075'
+select id,'Heron Lane',true   from fsv_road where primename = 'Heron Court' and postcode_l = '08075'
 union all
-select id,primename,true   from fst_road where primename in
+select id,primename,true   from fsv_road where primename in
 ( 'Creek Road','Rancocas Avenue', 'Delaware Avenue','John F Kennedy Way');
 -- drop MATERIALIZED VIEW fsv_addr2roadside cascade;
 
 CREATE MATERIALIZED VIEW fsv_addr2roadside AS
-  WITH all_addresses AS (
-  SELECT DISTINCT a.id AS addr_id, a.primename, a.geom, a.add_number
-  FROM fst_addr a
-  JOIN fst_cong c ON ST_Intersects(c.geom, a.geom) 
-  ),
-  road_aliases AS (
-  SELECT r.id AS road_id, r.primename AS alias_primename
-  FROM fst_road r
-  UNION
-  SELECT ra.road_id, ra.primename AS alias_primename
-  FROM fsv_roadaddralias ra
-  ), -- here.
-  closest_road_aliases AS (
-  SELECT a.addr_id, ra.road_id, ROW_NUMBER()
-  OVER (PARTITION BY a.addr_id ORDER BY a.geom <-> r.geom) AS sequence_number,
-  r.fromaddr_l,
-  r.toaddr_l,
-  r.fromaddr_r,
-  r.toaddr_r
-  FROM all_addresses a
-  CROSS JOIN road_aliases ra
-  JOIN fst_road r ON r.id = ra.road_id AND ra.alias_primename = a.primename
+WITH roadalias AS MATERIALIZED (
+    SELECT ra.road_id,ra.primename,r.geom FROM fst_road r
+    JOIN (SELECT st_union(geom) geom FROM fst_cong) c ON st_intersects(c.geom,r.geom)
+    JOIN fsv_roadaddralias ra ON ra.road_id = r.id
+    UNION ALL SELECT r.id,r.primename,r.geom FROM fst_road r
+    JOIN (SELECT st_union(geom) geom FROM fst_cong) c ON st_intersects(c.geom,r.geom)
+), circular_addrroad AS (
+SELECT DISTINCT ON (ca.id) ca.id,ra.road_id,ra.primename,ra.geom rgeom,ca.geom cageom FROM fst_circularaddr ca
+JOIN roadalias ra ON 
+st_intersects(
+ST_MakeLine( ST_PointN(ST_ExteriorRing(ca.geom), 1), 
+ ST_PointN(ST_ExteriorRing(ca.geom), 2)),ra.geom)
+ ORDER BY 1,2
+ ), caddr AS  MATERIALIZED (
+ SELECT a.id addr_id,ra.road_id FROM circular_addrroad car
+ JOIN fst_addr a ON st_contains(car.cageom,a.geom) AND place_type = 'Residence'
+ JOIN roadalias ra ON a.primename = ra.primename AND car.road_id = ra.road_id
+),addr2roadside AS (
+SELECT DISTINCT ON (a.id) a.id addr_id,ra.road_id,a.geom <-> ra.geom dist
+FROM (SELECT st_union(geom) geom FROM fst_cong) c 
+JOIN fst_addr a ON st_intersects(c.geom,a.geom) AND a.place_type = 'Residence' 
+JOIN roadalias ra ON a.primename = ra.primename
+ORDER BY 1,3,2
+), fin AS (
+SELECT * FROM caddr
+UNION ALL SELECT addr_id, road_id FROM addr2roadside
   )
-  SELECT DISTINCT ON (a.addr_id) a.addr_id, c.road_id
-  FROM all_addresses a
-  LEFT JOIN (
-  SELECT addr_id, road_id, sequence_number,fromaddr_l,fromaddr_r,toaddr_l,toaddr_r
-  FROM closest_road_aliases
-  ORDER BY sequence_number desc
- ) c ON c.addr_id = a.addr_id
- JOIN fst_road r ON r.id = c.road_id and CASE WHEN (c.sequence_number =2 OR c.sequence_number = 3) THEN 
-   ST_DWithin(a.geom,r.geom,0.0001)  AND (
-  (COALESCE(c.fromaddr_l,0) <> 0  AND mod(c.fromaddr_l,2) = mod(c.toaddr_l,2) AND
-  mod(c.fromaddr_l,2) = mod(a.add_number,2) AND 
-  a.add_number BETWEEN SYMMETRIC c.fromaddr_l AND c.toaddr_l) OR 
-  (COALESCE(c.fromaddr_r,0) <> 0  AND mod(c.fromaddr_r,2) = mod(c.toaddr_r,2) AND
-  mod(c.fromaddr_r,2) = mod(a.add_number,2) AND 
-  a.add_number BETWEEN SYMMETRIC c.fromaddr_r AND c.toaddr_r ))
-  ELSE
-    sequence_number = 1
-  END;
-
- 
-
-create  materialized view fsv_prrr2 AS
-WITH filtered_fst_road AS (
-    SELECT fst_road.* FROM fst_road
-       JOIN fst_cong ON ST_Contains(fst_cong.geom, fst_road.geom)
-),
-connected_road AS (
-  SELECT 
-    r1.primename,  r1.id road1_id, 
-    r2.id road2_id 
-  FROM  filtered_fst_road r1 
-	LEFT JOIN filtered_fst_road r2 ON ST_Touches(r1.geom, r2.geom) 
-    AND r1.primename = r2.primename 
-  WHERE r1.primename is not null
-), 
-ep2 as (
-  select 
-    r1.primename, r1.road1_id, r2.road1_id road2_id 
-  from (
-  SELECT r.primename, r.road1_id, 
-  count(r.road2_id) cnt 
-  FROM connected_road r 
-  group by 1, 2 
-  having count(r.road2_id)<= 1
-  ) r1, 
-    (
-      SELECT r.primename, r.road1_id, count(r.road2_id) cnt 
-      FROM connected_road r 
-      group by 1, 2 having count(r.road2_id)<= 1
-    ) r2 
-  where 
-    r1.primename = r2.primename 
-    and ( r1.cnt = 0 or r1.road1_id < r2.road1_id)
-), 
-final AS (
-  WITH RECURSIVE traverse AS (
-    SELECT 
-      ep2.primename, ep2.road1_id, 
-      ep2.road2_id, array[cr.road1_id]  road_id 
-    FROM 
-      ep2 JOIN connected_road cr ON cr.road1_id = ep2.road1_id 
-    UNION ALL 
-    SELECT 
-      t.primename, t.road1_id, t.road2_id, t.road_id || cr.road2_id 
-    FROM 
-      traverse t 
-      JOIN connected_road cr ON cr.road1_id = t.road_id[array_length(t.road_id, 1) ] 
-    WHERE NOT cr.road2_id = ANY(t.road_id)
-  ), 
-  final_traverse AS (
-    SELECT DISTINCT ON (primename, road1_id) primename, 
-      road1_id, road2_id, road_id 
-    FROM traverse WHERE road2_id = road_id[array_length(road_id, 1) ]
-  ), 
-  unnested AS (
-    SELECT 
-      primename, road1_id,  unnest(road_id) road_id, 
-      generate_subscripts(road_id, 1) seqno 
-    FROM final_traverse
-  ), 
-  street_ids AS (
-    SELECT  primename,  road1_id, DENSE_RANK() OVER (
-        ORDER BY road1_id) street_id 
-    FROM unnested  GROUP BY road1_id, primename
-  ) 
-  SELECT 
-    s.street_id, u.road1_id,u.seqno, 
-    u.road_id  FROM unnested u 
-	JOIN street_ids s ON s.road1_id= u.road1_id
-) 
-SELECT * FROM final;
-
+  SELECT DISTINCT ON (addr_id) addr_id, road_id FROM  fin;
 
 
 CREATE TABLE IF NOT EXISTS colors (
@@ -879,8 +776,7 @@ SELECT count(*) into CNT from colors where  color is not null;
 insert into colors (tnum,color)
 WITH 
 a as MATERIALIZED (
- select tnum, geom from ntaddr where rotate > -1000
-  union all select tnum, (st_dumppoints(geom)).geom from fsv_bcomplex
+ select tnum, geom from ntaddr
 ),mintnum AS  (
 select min(tnum) tnum from ntaddr a where NOT EXISTS (SELECT 1 FROM colors c WHERE a.tnum = c.tnum)
 ),b as (
@@ -897,7 +793,7 @@ from c,mintnum order by 3 desc limit 1
 SELECT * FROM d 
 )
 SELECT COALESCE(mintnum.tnum,
-(SELECT min(tnum) FROM tnbounds WHERE tnum NOT IN (SELECT tnum FROM colors))) tnum,
+(SELECT min(tnum) FROM ntaddr  WHERE tnum NOT IN (SELECT tnum FROM colors))) tnum,
  CASE WHEN (SELECT max(color) FROM colors) >= 6 THEN
 (SELECT d.color FROM d) 
 ELSE (SELECT COALESCE (max(colors.color),0)+1 FROM colors) END color FROM mintnum;
